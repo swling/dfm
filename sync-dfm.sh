@@ -4,14 +4,14 @@ set -Eeuo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 TARGET_DIR=/usr/local/bin
 ALIAS=/usr/bin/dfm
-COMMANDS=(dfm)
+COMMANDS=(dfm dfm-common.sh)
 
 fail() {
     printf 'Error: %s\n' "$*" >&2
     exit 1
 }
 
-[[ $# -eq 0 ]] || fail "Usage: sync-dfm.sh (syncs dfm from this directory)"
+[[ $# -eq 0 ]] || fail "Usage: sync-dfm.sh (syncs dfm and dfm-common.sh from this directory)"
 [[ "$(id -u)" -eq 0 ]] || fail "Run this command as root."
 
 for cmd in "${COMMANDS[@]}"; do

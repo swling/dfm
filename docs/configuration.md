@@ -1,6 +1,6 @@
 # 配置文件与路径
 
-安装前编辑当前目录的 dfm.conf，或安装后编辑 /etc/dfm.conf：
+安装前编辑当前目录的 dfm.conf；安装时会用它覆盖 /etc/dfm.conf：
 
     WEB_ROOT="/home/wwwroot"
     DEFAULT_WEB_ROOT="/home/wwwroot/default"
@@ -9,6 +9,9 @@
     PHP_VERSION=""
     MYSQL_VERSION=""
     ACME_EMAIL=""
+
+重装同样以源码目录的 dfm.conf 为准，系统会用新配置覆盖 /etc/dfm.conf；
+需要保留旧值时先备份 /etc/dfm.conf。
 
 ## 变量说明
 
@@ -55,8 +58,7 @@
                  不签发证书，也不做 HTTP 到 HTTPS 跳转。
   站点方案标记   仅 HTTP 的站点配置第二行写入 # Scheme: http，
                  dfm vhost cert 据此跳过证书等待。
-                 dfm vhost add-ssl 会把标记改为 https 并去掉地址上的 http:// 前缀，
-                 老配置缺少标记时会在地址行前补写 # Scheme: https。
+                 dfm vhost add-ssl 会把标记改为 https 并去掉地址上的 http:// 前缀。
   默认站点       从 conf/default-site.caddyfile 渲染，按 DEFAULT_WEB_ROOT 设置根目录，
                  只提供 HTTP，安装时直接覆盖 default.caddyfile。
   静态缓存       conf/cache-static.caddyfile 部署到 /etc/frankenphp/cache-static.caddyfile，
@@ -80,8 +82,7 @@
     并把 frankenphp 加入 www 组，使其可读取和写入网站文件；已有目录不改动属主。
   - 包自带单元设置 ProtectHome=true，会让 /home 下的站点目录不可访问；
     DFM 写入 /etc/systemd/system/frankenphp.service.d/10-dfm.conf 改为
-    ProtectHome=false。包里的 ProtectSystem=full 不限制 /home，
-    网站文件的写权限由 www 组与目录权限控制，不需要额外的 ReadWritePaths。
+    ProtectHome=false。
 
 ## 路径速查
 
@@ -94,7 +95,7 @@
   伪静态片段          /etc/frankenphp/rewrite/<名称>.caddyfile
   PHP 配置            /etc/php-zts/php.ini、/etc/php-zts/conf.d/
   Caddy 证书数据      /var/lib/frankenphp/caddy
-  MySQL 配置          /etc/mysql/（自定义数据目录时写入 zz-lnmp-debian.cnf）
+  MySQL 配置          /etc/mysql/（自定义数据目录时写入 zz-dfm.cnf）
   MySQL 数据          /var/lib/mysql 或 MYSQL_DATA_DIR
   管理命令            /usr/local/bin/dfm（addons 已内置）
 

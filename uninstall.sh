@@ -5,18 +5,16 @@
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+. "${SCRIPT_DIR}/dfm-common.sh"
 
 SYSTEM_CONFIG=/etc/dfm.conf
-STATE_DIR=/etc/dfm
-FRANKENPHP_DIR=/etc/frankenphp
+FRANKENPHP_DIR="${FRANKENPHP_CONFIG_DIR}"
 SITE_DIR="${FRANKENPHP_DIR}/Caddyfile.d"
 REWRITE_DIR="${FRANKENPHP_DIR}/rewrite"
 FRANKENPHP_DROPIN_DIR=/etc/systemd/system/frankenphp.service.d
-FRANKENPHP_MARKER='# Managed by DFM'
 CADDY_DATA=/var/lib/frankenphp/caddy
-MYSQL_LNMP_CNF=/etc/mysql/mysql.conf.d/zz-lnmp-debian.cnf
-MYSQL_KEYRING=/usr/share/keyrings/mysql-apt.gpg
-MYSQL_SOURCE=/etc/apt/sources.list.d/mysql.list
+MYSQL_DFM_CNF=/etc/mysql/mysql.conf.d/zz-dfm.cnf
 AUTO_CONFIRM=0
 COMPONENT=""
 
@@ -193,7 +191,7 @@ collect_packages() {
 # ---- 组件：生成卸载计划 ----
 plan_mysql() {
     REMOVE_ITEMS+=(
-        "MySQL 安装器生成的配置: ${MYSQL_LNMP_CNF}"
+        "MySQL 安装器生成的配置: ${MYSQL_DFM_CNF}"
         "AppArmor 中为 ${MYSQL_DATA_DIR} 追加的规则"
         "软链 /var/lib/mysql（不触碰其指向的数据）"
         "APT 仓库与密钥: ${MYSQL_SOURCE}, ${MYSQL_KEYRING}"
@@ -213,6 +211,7 @@ plan_frankenphp() {
 plan_all_extra() {
     REMOVE_ITEMS+=(
         "管理命令: /usr/local/bin/dfm, /usr/bin/dfm"
+        "共享函数库: /usr/local/bin/dfm-common.sh"
         "用户配置与状态: ${SYSTEM_CONFIG}, ${STATE_DIR}"
         "www 用户/组"
     )
@@ -298,9 +297,9 @@ run_mysql() {
     step "卸载 MySQL"
     systemctl stop mysql >/dev/null 2>&1 || true
 
-    if [[ -f "$MYSQL_LNMP_CNF" ]]; then
-        rm -f -- "$MYSQL_LNMP_CNF"
-        info "已删除: $MYSQL_LNMP_CNF"
+    if [[ -f "$MYSQL_DFM_CNF" ]]; then
+        rm -f -- "$MYSQL_DFM_CNF"
+        info "已删除: $MYSQL_DFM_CNF"
     fi
     remove_apparmor_rules
 
@@ -367,7 +366,7 @@ run_frankenphp() {
 
 # ---- all：管理组件 ----
 run_all_extra() {
-    local cmd orig f
+    local cmd orig
     step "处理管理命令"
     for cmd in /usr/local/bin/dfm /usr/bin/dfm; do
         orig="${cmd}.dfm.orig"
@@ -380,6 +379,7 @@ run_all_extra() {
             info "已删除: $cmd"
         fi
     done
+    remove_files /usr/local/bin/dfm-common.sh
 
     step "删除 DFM 配置与状态"
     remove_files "$SYSTEM_CONFIG"
@@ -439,7 +439,6 @@ EOF
   站点配置:         ${SITE_DIR}/（含 default.caddyfile）
   Caddy 证书数据:   ${CADDY_DATA}
   访问日志:         ${FRANKENPHP_LOG_DIR}
-  残留备份:          *.dfm.orig、*.lnmp-debian.orig（如有）
 ================================================================
 EOF
 }

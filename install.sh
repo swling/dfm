@@ -2,25 +2,17 @@
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-MYSQL_KEYRING=/usr/share/keyrings/mysql-apt.gpg
-MYSQL_SOURCE=/etc/apt/sources.list.d/mysql.list
-MYSQL_REPO_URL=https://repo.mysql.com/apt/debian
+# shellcheck disable=SC1091
+. "${SCRIPT_DIR}/dfm-common.sh"
 MYSQL_COMPONENTS=
 MYSQL_COMPONENT=
 MYSQL_CODENAME=
 MYSQL_ARCHITECTURE=
-FRANKENPHP_REPO_BASE=https://pkg.henderkes.com/api/packages
-FRANKENPHP_MARKER='# Managed by DFM'
 SYSTEM_CONFIG=/etc/dfm.conf
-STATE_DIR=/etc/dfm
 
-if [[ -r "$SYSTEM_CONFIG" ]]; then
-    # shellcheck disable=SC1090
-    . "$SYSTEM_CONFIG"
-else
-    # shellcheck disable=SC1091
-    . "$SCRIPT_DIR/dfm.conf"
-fi
+# Installations always take configuration from the source tree.
+# shellcheck disable=SC1091
+. "${SCRIPT_DIR}/dfm.conf"
 
 WEB_ROOT="${WEB_ROOT:-/home/wwwroot}"
 DEFAULT_WEB_ROOT="${DEFAULT_WEB_ROOT:-${WEB_ROOT}/default}"
@@ -29,7 +21,6 @@ MYSQL_DATA_DIR="${MYSQL_DATA_DIR:-/var/lib/mysql}"
 PHP_VERSION="${PHP_VERSION:-}"
 MYSQL_VERSION="${MYSQL_VERSION:-}"
 ACME_EMAIL="${ACME_EMAIL:-}"
-FRANKENPHP_CONFIG_DIR=/etc/frankenphp
 FRANKENPHP_SITE_DIR="${FRANKENPHP_CONFIG_DIR}/Caddyfile.d"
 FRANKENPHP_REWRITE_DIR="${FRANKENPHP_CONFIG_DIR}/rewrite"
 FRANKENPHP_CACHE_CONF="${FRANKENPHP_CONFIG_DIR}/cache-static.caddyfile"
@@ -163,22 +154,11 @@ select_mysql_version() {
 }
 
 select_php_version() {
-    local branch code choice index default_index marker
+    local choice index default_index marker
     local -a available_branches=()
 
-    # One deb repository per PHP branch; the suite/component layout is the
-    # same for every branch, so only the repository code changes.
-    for branch in 8.2 8.3 8.4 8.5; do
-        code="${branch//./}"
-        if curl --fail --silent --show-error --location --head --max-time 20 \
-            "${FRANKENPHP_REPO_BASE}/${code}/debian/dists/php-zts/Release" \
-            -o /dev/null 2>/dev/null; then
-            available_branches+=("$branch")
-        fi
-    done
-    ((${#available_branches[@]} > 0)) ||
-        fail "No PHP branches are available from the FrankenPHP deb repository."
-
+    detect_php_branches
+    available_branches=("${PHP_BRANCHES[@]}")
     default_index=$((${#available_branches[@]} - 1))
     if [[ -n "$PHP_VERSION" ]]; then
         for index in "${!available_branches[@]}"; do
@@ -283,14 +263,6 @@ finalize_mysql_repository() {
     # from different series while resolving the pinned mysql-server version.
     write_mysql_source "$MYSQL_COMPONENT"
     apt-get update
-}
-
-frankenphp_source_path() {
-    printf '/etc/apt/sources.list.d/static-php%s.list' "$1"
-}
-
-frankenphp_keyring_path() {
-    printf '/etc/apt/keyrings/static-php%s.asc' "$1"
 }
 
 install_frankenphp_repository() {
@@ -448,12 +420,8 @@ validate_configuration_and_existing_data() {
 }
 
 prepare_package_sources() {
-    if [[ ! -e "$SYSTEM_CONFIG" ]]; then
-        install -m 0644 "$SCRIPT_DIR/dfm.conf" "$SYSTEM_CONFIG"
-    fi
+    install -m 0644 "$SCRIPT_DIR/dfm.conf" "$SYSTEM_CONFIG"
 
-    # Leftover package sources no longer abort installation: install dependencies
-    # first, then rebuild the sources and refresh indexes.
     apt-get update || warn "apt-get update failed; continuing to install source dependencies."
     apt-get install -y ca-certificates curl gnupg ||
         fail "Could not install ca-certificates / curl / gnupg; check APT sources and network."
@@ -483,18 +451,7 @@ finalize_package_sources() {
 }
 
 install_packages() {
-    local -a php_packages=(
-        php-zts-cli
-        php-zts-curl
-        php-zts-gd
-        php-zts-intl
-        php-zts-zip
-        php-zts-pdo-mysql
-        php-zts-mysqli
-        php-zts-bcmath
-        php-zts-fileinfo
-    )
-    apt-get install -y frankenphp "${php_packages[@]}" \
+    apt-get install -y frankenphp "${PHP_ZTS_PACKAGES[@]}" \
         "mysql-server=${MYSQL_VERSION}"
 
     [[ -x /usr/bin/frankenphp ]] || fail "FrankenPHP was not installed."
@@ -525,7 +482,7 @@ configure_mysql_data_directory() {
         fi
         ln -s "$MYSQL_DATA_DIR" /var/lib/mysql
         mkdir -p /etc/mysql/mysql.conf.d
-        cat > /etc/mysql/mysql.conf.d/zz-lnmp-debian.cnf <<EOF
+        cat > /etc/mysql/mysql.conf.d/zz-dfm.cnf <<EOF
 [mysqld]
 datadir = ${MYSQL_DATA_DIR}
 EOF
@@ -565,8 +522,6 @@ ensure_web_user() {
         useradd --system --gid www --home-dir /home/wwwroot --no-create-home \
             --shell /usr/sbin/nologin www
     fi
-    # The deb package adds frankenphp to www-data. "grep -w www" also matches
-    # www-data, so compare the full group name instead.
     if getent passwd frankenphp >/dev/null &&
        ! id -nG frankenphp | tr ' ' '\n' | grep -Fxq www; then
         usermod -aG www frankenphp
@@ -588,7 +543,7 @@ prepare_web_layout() {
 }
 
 configure_frankenphp() {
-    local caddyfile caddyfile_tmp default_site default_site_tmp email_line template
+    local caddyfile caddyfile_tmp default_site default_site_tmp email_line
     local rewrite_template rewrite_name rewrite_file
 
     install -d -m 0755 "$FRANKENPHP_CONFIG_DIR" "$FRANKENPHP_SITE_DIR" \
@@ -601,9 +556,7 @@ configure_frankenphp() {
     fi
     prepare_web_layout
 
-    # The deb package runs as frankenphp:frankenphp and ships ProtectHome=true,
-    # which makes /home (and thus the web root) inaccessible. ProtectSystem=full
-    # does not cover /home, so relaxing ProtectHome alone is sufficient.
+    # The deb unit ships ProtectHome=true, which hides the /home web root.
     install -d -m 0755 "$(dirname "$FRANKENPHP_DROPIN")"
     cat > "$FRANKENPHP_DROPIN" <<'EOF'
 [Service]
@@ -664,41 +617,15 @@ install_management_commands() {
             cp -p -- "$cmd" "$orig"
         fi
     done
+    install -m 0755 "$SCRIPT_DIR/dfm-common.sh" /usr/local/bin/dfm-common.sh
     install -m 0755 "$SCRIPT_DIR/dfm" /usr/local/bin/dfm
     ln -sfn /usr/local/bin/dfm /usr/bin/dfm
-}
-
-stop_other_frankenphp() {
-    local -a pids=()
-    local _
-
-    # Stop the managed unit first so systemd does not restart the process
-    # while we are cleaning up leftover instances.
-    systemctl stop frankenphp >/dev/null 2>&1 || true
-
-    mapfile -t pids < <(pgrep -x frankenphp 2>/dev/null || true)
-    ((${#pids[@]} > 0)) || return 0
-
-    printf 'Stopping existing FrankenPHP processes...\n'
-    kill -TERM "${pids[@]}" 2>/dev/null || true
-    for _ in {1..25}; do
-        mapfile -t pids < <(pgrep -x frankenphp 2>/dev/null || true)
-        ((${#pids[@]} == 0)) && break
-        sleep 0.2
-    done
-    if ((${#pids[@]} > 0)); then
-        kill -KILL "${pids[@]}" 2>/dev/null || true
-        sleep 0.2
-    fi
-    printf 'Existing FrankenPHP processes stopped.\n'
 }
 
 start_and_verify_services() {
     /usr/bin/frankenphp validate --config "${FRANKENPHP_CONFIG_DIR}/Caddyfile" ||
         fail "FrankenPHP rejected the generated Caddyfile."
     systemctl daemon-reload
-    # The package post-install may start FrankenPHP with its own Caddyfile;
-    # stop it first so the DFM config is applied on a clean start.
     stop_other_frankenphp
     systemctl enable frankenphp mysql
     systemctl start frankenphp mysql ||

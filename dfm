@@ -2,6 +2,9 @@
 set -Eeuo pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+. "${SCRIPT_DIR}/dfm-common.sh"
+
 if [[ -r /etc/dfm.conf ]]; then
     # shellcheck disable=SC1091
     . /etc/dfm.conf
@@ -10,7 +13,6 @@ elif [[ -r "${SCRIPT_DIR}/dfm.conf" ]]; then
     . "${SCRIPT_DIR}/dfm.conf"
 fi
 
-FRANKENPHP_CONFIG_DIR=/etc/frankenphp
 SITE_DIR="${FRANKENPHP_CONFIG_DIR}/Caddyfile.d"
 REWRITE_DIR="${FRANKENPHP_CONFIG_DIR}/rewrite"
 CADDYFILE="${FRANKENPHP_CONFIG_DIR}/Caddyfile"
@@ -25,7 +27,7 @@ usage() {
     cat <<'EOF'
 Usage:
   dfm {start|stop|restart|reload|kill|status}
-  dfm {frankenphp|mysql} {start|stop|restart|reload|kill|status}
+  dfm {frankenphp|mysql|mariadb} {start|stop|restart|reload|kill|status}
   dfm vhost {add|add-http|list|del|cert <domain>}
   dfm vhost {add-ssl|enable-https} <domain>
   dfm addons {install|uninstall} <addon>
@@ -50,31 +52,6 @@ require_root() {
 require_frankenphp() {
     [[ -x /usr/bin/frankenphp && -d "$SITE_DIR" ]] ||
         fail "DFM is not installed. Run dfm/install.sh first."
-}
-
-stop_other_frankenphp() {
-    local -a pids=()
-    local _
-
-    # Stop the managed unit first so systemd does not restart the process
-    # while we are cleaning up leftover instances.
-    systemctl stop frankenphp >/dev/null 2>&1 || true
-
-    mapfile -t pids < <(pgrep -x frankenphp 2>/dev/null || true)
-    ((${#pids[@]} > 0)) || return 0
-
-    printf 'Stopping existing FrankenPHP processes...\n'
-    kill -TERM "${pids[@]}" 2>/dev/null || true
-    for _ in {1..25}; do
-        mapfile -t pids < <(pgrep -x frankenphp 2>/dev/null || true)
-        ((${#pids[@]} == 0)) && break
-        sleep 0.2
-    done
-    if ((${#pids[@]} > 0)); then
-        kill -KILL "${pids[@]}" 2>/dev/null || true
-        sleep 0.2
-    fi
-    printf 'Existing FrankenPHP processes stopped.\n'
 }
 
 check_certificate() {
@@ -293,9 +270,6 @@ add_vhost() {
     fi
     printf 'Using scheme: %s\n' "$scheme"
 
-    # In classic mode php_server splits PATH_INFO by default, so there is no
-    # separate Pathinfo prompt like the old FastCGI vhost flow.
-
     read -r -p "Enable access log? [Y/n]: " access_choice
     log_block=
     if [[ ! "$access_choice" =~ ^[Nn]$ ]]; then
@@ -356,29 +330,22 @@ enable_https() {
     valid_domain "$domain" || fail "Invalid domain name."
     config="${SITE_DIR}/${domain}.caddyfile"
     [[ -f "$config" && ! -L "$config" ]] || fail "Virtual host does not exist: $domain"
-    if ! grep -q '^http://' "$config" && ! grep -qx '# Scheme: http' "$config"; then
+    grep -qx '# Scheme: http' "$config" ||
         fail "Site is not HTTP-only; HTTPS is already enabled: $domain"
-    fi
 
     backup="$(mktemp)"
     tmp="$(mktemp)"
     cat -- "$config" > "$backup"
     awk '
-        BEGIN { scheme = 0; done = 0 }
-        /^# Scheme:/ {
-            if ($0 == "# Scheme: http") {
-                print "# Scheme: https"
-            } else {
-                print
-            }
-            scheme = 1
+        BEGIN { done = 0 }
+        /^# Scheme: http$/ {
+            print "# Scheme: https"
             next
         }
         {
             if (!done && $0 ~ /^[^#[:space:]].* \{$/) {
                 gsub(/http:\/\//, "")
                 done = 1
-                if (!scheme) print "# Scheme: https"
             }
             print
         }
@@ -398,6 +365,172 @@ enable_https() {
     rm -f "$tmp" "$backup"
     printf 'HTTPS enabled for site: %s\n' "$domain"
     check_certificate "$domain" "$cert_log_since"
+}
+
+addons_usage() {
+    cat <<'EOF'
+Usage:
+  dfm addons
+  dfm addons {install|uninstall} {memcached|opcache|redis|apcu|imagemagick|exif|fileinfo|ldap|bz2|sodium|imap|swoole}
+
+PHP extensions are installed as php-zts-* packages from the configured APT
+repositories. Extensions compiled into the FrankenPHP binary need no package.
+EOF
+}
+
+addons_require_frankenphp() {
+    command -v frankenphp >/dev/null 2>&1 ||
+        fail "FrankenPHP is not installed. Install DFM first."
+}
+
+addons_package_available() {
+    local candidate
+    candidate="$(apt-cache policy "$1" | awk '/Candidate:/ {print $2; exit}')"
+    [[ -n "$candidate" && "$candidate" != '(none)' ]]
+}
+
+addons_prepare() {
+    local addon=$1
+    ADDON_PACKAGES=()
+    ADDON_SERVICES=()
+    case "$addon" in
+        memcached)
+            ADDON_PACKAGES=(memcached php-zts-memcached)
+            ADDON_SERVICES=(memcached)
+            ;;
+        opcache)
+            if addons_package_available php-zts-opcache; then
+                ADDON_PACKAGES=(php-zts-opcache)
+            else
+                printf 'OPcache is compiled into the PHP binary; no package is needed.\n'
+            fi
+            ;;
+        redis)
+            ADDON_PACKAGES=(redis-server php-zts-redis)
+            ADDON_SERVICES=(redis-server)
+            ;;
+        apcu) ADDON_PACKAGES=(php-zts-apcu) ;;
+        imagemagick)
+            ADDON_PACKAGES=(php-zts-imagick)
+            ADDON_SERVICES=()
+            ;;
+        exif)
+            printf 'Exif is compiled into the PHP binary; no package is needed.\n'
+            ;;
+        fileinfo)
+            if addons_package_available php-zts-fileinfo; then
+                ADDON_PACKAGES=(php-zts-fileinfo)
+            else
+                printf 'Fileinfo is already provided by the PHP binary.\n'
+            fi
+            ;;
+        ldap) ADDON_PACKAGES=(php-zts-ldap) ;;
+        bz2) ADDON_PACKAGES=(php-zts-bz2) ;;
+        sodium)
+            printf 'Sodium is provided by the PHP binary and its bundled libraries; no package is needed.\n'
+            ;;
+        imap)
+            fail "php-zts-imap is not published by the FrankenPHP deb repository; build it with PIE if you need it."
+            ;;
+        swoole) ADDON_PACKAGES=(php-zts-swoole) ;;
+        *) fail "Unsupported addon: ${addon}" ;;
+    esac
+}
+
+addons_show_menu() {
+    cat <<'EOF'
+PHP extensions and services (FrankenPHP / ZTS packages):
+  1: Memcached server + PHP extension
+  2: OPcache
+  3: Redis server + PHP extension
+  4: APCu
+  5: ImageMagick PHP extension
+  6: Exif (compiled in)
+  7: Fileinfo
+  8: LDAP
+  9: Bz2
+ 10: Sodium (compiled in)
+ 11: Imap (not published; use PIE)
+ 12: Swoole
+ 13: Exit
+EOF
+}
+
+addons_restart_frankenphp() {
+    local was_active=0
+    systemctl is-active --quiet frankenphp && was_active=1
+    stop_other_frankenphp
+    ((was_active)) || return 0
+    systemctl start frankenphp
+}
+
+addons_action() {
+    local action=$1 addon=$2 package
+    local -a available_packages=()
+    require_root
+    addons_require_frankenphp
+    addons_prepare "$addon"
+    ((${#ADDON_PACKAGES[@]} > 0)) || {
+        printf '%s: nothing to install.\n' "$addon"
+        return 0
+    }
+
+    for package in "${ADDON_PACKAGES[@]}"; do
+        if ! addons_package_available "$package"; then
+            fail "APT package ${package} is unavailable. This extension is not provided by the configured repositories."
+        fi
+        available_packages+=("$package")
+    done
+
+    if [[ "$action" == install ]]; then
+        apt-get install -y "${available_packages[@]}"
+        for package in "${ADDON_SERVICES[@]}"; do
+            if systemctl cat "$package" >/dev/null 2>&1; then
+                systemctl enable --now "$package"
+            else
+                printf 'Warning: systemd unit %s not found; skipping enable.\n' "$package" >&2
+            fi
+        done
+        addons_restart_frankenphp
+        printf '%s installed.\n' "$addon"
+    else
+        apt-get remove -y "${available_packages[@]}"
+        addons_restart_frankenphp
+        printf '%s removed.\n' "$addon"
+    fi
+}
+
+addons_run() {
+    local action=${1:-} addon=${2:-} choice
+    if [[ -z "$action" ]]; then
+        addons_show_menu
+        read -r -p "Select addon number: " choice
+        case "$choice" in
+            1) addon=memcached ;;
+            2) addon=opcache ;;
+            3) addon=redis ;;
+            4) addon=apcu ;;
+            5) addon=imagemagick ;;
+            6) addon=exif ;;
+            7) addon=fileinfo ;;
+            8) addon=ldap ;;
+            9) addon=bz2 ;;
+            10) addon=sodium ;;
+            11) addon=imap ;;
+            12) addon=swoole ;;
+            13|exit) return 0 ;;
+            *) fail "Invalid addon selection: ${choice}" ;;
+        esac
+        action=install
+    fi
+    case "$action" in
+        install|uninstall)
+            [[ -n "$addon" ]] || { addons_usage >&2; exit 2; }
+            addons_action "$action" "${addon,,}"
+            ;;
+        --help|-h) addons_usage ;;
+        *) addons_usage >&2; exit 2 ;;
+    esac
 }
 
 case "${1:-}" in
@@ -449,7 +582,7 @@ case "${1:-}" in
         ;;
     addons)
         shift
-        exec /usr/local/bin/addons.sh "$@"
+        addons_run "$@"
         ;;
     *)
         usage >&2

@@ -1,29 +1,31 @@
-# 安装器备份文件（.dfm.orig）
+# 手动备份配置
 
-安装器改动系统已有文件前，会在原路径旁留一份 .dfm.orig 备份，便于人工
-比对和恢复。备份只在安装时产生，路径就是原路径加 .dfm.orig；使用 cp -p，
-目标已存在时不覆盖，所以重复安装不会改写首次快照。安装器不读取、不回滚、
-也不自动删除这些备份。
+建议直接备份 Debian 的配置与证书目录。MySQL 数据目录位于独立磁盘时，请按
+/etc/dfm.conf 中的实际路径另行备份；若未安装 Redis，可跳过 Redis 命令。
 
-## 已有配置文件
+## 备份
 
-  - /etc/apt/sources.list.d/static-php<code>.list.dfm.orig
-    源文件存在且不含 `# Managed by DFM` 标记时产生。安装器用当前 PHP 分支
-    对应的 FrankenPHP deb 源覆盖原文件。<code> 是仓库使用的分支代码。
+    sudo install -d -m 700 /home/bf
 
-  - /etc/frankenphp/Caddyfile.dfm.orig
-    Caddyfile 是普通文件、不含 `# Managed by DFM` 标记且备份不存在时产生。
-    安装器会重新生成全局块与站点 import。
+    sudo tar -czpf /home/bf/frankenphp-conf.tar.gz /etc/frankenphp /etc/dfm.conf
+    sudo tar -czpf /home/bf/frankenphp-caddy.tar.gz /var/lib/frankenphp/caddy
+    sudo tar -czpf /home/bf/frankenphp-systemd.tar.gz /etc/systemd/system/frankenphp.service.d
+    sudo tar -czpf /home/bf/mysql-conf.tar.gz /etc/mysql
+    sudo tar -czpf /home/bf/redis-conf.tar.gz /etc/redis/redis.conf
 
-## 管理命令文件
+## 恢复
 
-  - /usr/local/bin/dfm.dfm.orig
-  - /usr/bin/dfm.dfm.orig
-    对应路径是普通文件（非软链）、备份不存在且内容与本目录的 dfm 不同时
-    产生。若已经是正确软链，安装器直接重建，不产生备份。安装后
-    /usr/local/bin/dfm 是脚本实体，/usr/bin/dfm 指向它。
+恢复前先备份目标服务器当前配置，再从备份中按需覆盖，不要先删除配置目录。
 
-## 不产生备份
+    sudo tar -xzpf /home/bf/frankenphp-conf.tar.gz -C /
+    sudo tar -xzpf /home/bf/frankenphp-caddy.tar.gz -C /
+    sudo tar -xzpf /home/bf/frankenphp-systemd.tar.gz -C /
+    sudo tar -xzpf /home/bf/mysql-conf.tar.gz -C /
+    sudo tar -xzpf /home/bf/redis-conf.tar.gz -C /
 
-  - addons.sh：不安装到系统路径，只保留在源码目录。
-  - /etc/apt/keyrings/static-php<code>.asc：安装时直接重建。
+恢复 FrankenPHP 配置时，只取需要的公共配置；不同服务器的站点配置应单独核对，
+不要盲目覆盖。恢复后至少运行
+
+    sudo frankenphp validate --config /etc/frankenphp/Caddyfile
+
+并检查 frankenphp 与 mysql 服务状态，再重载或重启服务。

@@ -56,7 +56,7 @@
   5. 迁移 MySQL 数据目录（若使用自定义目录），处理 AppArmor 规则与软链。
   6. 创建 www 用户/组，并把 frankenphp 服务用户加入 www 组。
   7. 创建 /etc/frankenphp 布局，渲染 Caddyfile 与默认站点，部署伪静态片段。
-  8. 写入 systemd 覆盖配置，安装 dfm 命令（addons 已内置）。
+  8. 写入 systemd 覆盖配置，安装 dfm 命令与共享函数库（addons 已内置）。
   9. 校验 Caddyfile，启动并重启 frankenphp，检查 frankenphp 与 mysql 状态。
 
 ## 安装后检查
@@ -68,6 +68,9 @@
 
   新站点的证书在浏览器首次访问 https 域名时由 Caddy 自动签发；
   可用 journalctl -u frankenphp 查看 ACME 过程。
+
+  upgrade.sh、sync-dfm.sh 以及源码目录的 ./addons.sh 都依赖本目录；
+  请保留源码目录，不要在安装后删除。
 
 ## 与 LNMP 版本的行为差异
 

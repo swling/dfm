@@ -28,6 +28,7 @@
   MySQL 配置        /etc/mysql/
   MySQL 数据        /var/lib/mysql 或 MYSQL_DATA_DIR
   管理命令          /usr/local/bin/dfm
+  共享函数库        /usr/local/bin/dfm-common.sh
   网站根目录        /home/wwwroot/
 
 各项的来源标记见上方「标注说明」，完整布局见下方目录树。
@@ -69,7 +70,7 @@
 │   │   └── mysql.conf.d/                 # MySQL 服务端配置
 │   │       ├── mysqld.cnf                # [包]
 │   │       ├── custom.cnf                # [自定义]
-│   │       └── zz-lnmp-debian.cnf        # [DFM] 仅自定义数据目录时写入
+│   │       └── zz-dfm.cnf                # [DFM] 仅自定义数据目录时写入
 │   │
 │   ├── apt/                              # APT 源与密钥
 │   │   ├── sources.list.d/
@@ -84,7 +85,6 @@
 │   │       └── frankenphp.service.d/
 │   │           └── 10-dfm.conf           # [DFM] ProtectHome=false
 │   │
-│   ├── lnmp-debian.conf                  # 仅旧 LNMP 安装残留；DFM 不读取
 │   ├── dfm.conf                          # [DFM] 用户配置入口
 │   │
 │   ├── dfm/                              # [DFM] 内部状态目录
@@ -99,7 +99,7 @@
 │   │
 │   ├── bin/
 │   │   ├── frankenphp                    # [包] 服务与 CLI 主程序
-│   │   ├── php                           # [包] php-zts-cli 提供的命令行 PHP
+│   │   ├── php                           # [包] 命令行 PHP（路径以实际安装为准）
 │   │   ├── mysql                         # [包] MySQL 客户端
 │   │   └── dfm                           # [DFM] 指向 /usr/local/bin/dfm 的软链
 │   │
@@ -110,7 +110,8 @@
 │   │
 │   └── local/
 │       └── bin/                          # [DFM] 管理脚本
-│           └── dfm                       # 服务、站点与扩展入口（含 addons）
+│           ├── dfm                       # 服务、站点与扩展入口（含 addons）
+│           └── dfm-common.sh             # [DFM] 共享常量与函数
 │
 │
 ├── var/                                  # 可变数据

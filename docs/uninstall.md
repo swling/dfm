@@ -20,7 +20,7 @@
 ## 将删除
 
   MySQL
-    /etc/mysql/mysql.conf.d/zz-lnmp-debian.cnf
+    /etc/mysql/mysql.conf.d/zz-dfm.cnf
     AppArmor 中为 MYSQL_DATA_DIR 追加的规则
     /var/lib/mysql 软链（不触碰其指向的数据）
     /etc/apt/sources.list.d/mysql.list 与 MySQL 签名密钥
@@ -33,7 +33,7 @@
     /etc/dfm/php-version、/etc/dfm/frankenphp-version
 
   all 额外删除
-    /usr/local/bin/dfm、/usr/bin/dfm
+    /usr/local/bin/dfm、/usr/bin/dfm、/usr/local/bin/dfm-common.sh
     /etc/dfm.conf 与 /etc/dfm/
     www 用户/组
 
@@ -45,7 +45,7 @@
   - /var/lib/frankenphp/caddy 中的 Caddy 自动证书数据。
   - /var/log/frankenphp/ 中的访问日志。
   - 通过 dfm addons 安装的 memcached、redis-server 等独立服务包。
-  - 自定义伪静态片段、*.dfm.orig 与 *.lnmp-debian.orig 备份。
+  - 自定义伪静态片段保留；安装器生成的 *.dfm.orig 与 *.lnmp-debian.orig 会还原或删除。
 
 ## 执行流程
 

@@ -86,8 +86,7 @@ reload 前记录时间点，随后轮询证书存储：默认每 2 秒检查一�
 
 用于“先建 HTTP、之后再补 SSL”的场景。命令只改站点地址行：去掉每个地址的
 http:// 前缀，并把 # Scheme: http 改成 # Scheme: https；网站目录、伪静态、
-访问日志与附加域名都保持不变。老配置没有方案标记时，会在地址行前补一行
-`# Scheme: https`，之后 `dfm vhost cert <域名>` 就能正常等待证书。
+访问日志与附加域名都保持不变。之后 `dfm vhost cert <域名>` 就能正常等待证书。
 
 改动前保留原文件副本，先 frankenphp validate 再 reload；校验失败会还原配置。
 切换成功后按常规流程轮询证书状态，超时只表示等待期内未签发，Caddy 仍会后台重试。
@@ -164,7 +163,7 @@ http:// 前缀，并把 # Scheme: http 改成 # Scheme: https；网站目录、�
   sudo ./sync-dfm.sh
 
   修改当前目录的 dfm 后，用同步脚本更新系统中的命令。
-  默认只同步本目录的 dfm 到 /usr/local/bin/；同步前会检查 Bash 语法，
+  默认同步本目录的 dfm 与 dfm-common.sh 到 /usr/local/bin/；同步前会检查 Bash 语法，
   并确认 /usr/bin/dfm 仍是指向 /usr/local/bin/dfm 的软链。
   也可重新运行 install.sh，安装器会备份被覆盖的命令为 *.dfm.orig。
   addons.sh 不安装到系统路径，无需同步。

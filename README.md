@@ -15,20 +15,20 @@ MySQL 的安装、数据目录迁移和选版逻辑保持不变。
 ## 目录内容
 
   install.sh        安装器（官方 deb 源 + Oracle MySQL 官方源，交互选版）
-  dfm.conf          安装前可编辑的默认配置，安装后位于 /etc/dfm.conf
+  dfm.conf          安装前编辑的配置，安装时覆盖 /etc/dfm.conf
   dfm               安装后的管理命令：服务、虚拟主机、扩展入口（内置 addons）
-  addons.sh         扩展管理独立脚本，保留在本目录，可在当前目录直接运行
+  dfm-common.sh     共享常量与函数，随 dfm 安装和同步
+  addons.sh         源码目录的扩展入口，委托 dfm 实现
   uninstall.sh      按 mysql / frankenphp / all 卸载，保留数据
   upgrade.sh        按 frankenphp / php / mysql 手动升级
   sync-dfm.sh       把 dfm 同步到系统命令路径
-  backup.md         手动备份配置与证书目录的命令
   conf/             Caddyfile、默认站点、静态缓存片段模板
   rewrite/          常见程序的 Caddyfile 伪静态片段
-  docs/             安装、配置、命令、路径、卸载、升级文档
+  docs/             安装、配置、命令、路径、卸载、升级与备份文档
 
 ## 从零开始的完整流程
 
-  1. 在 /etc/dfm.conf 中设置网站根目录、MySQL 数据目录、PHP 分支、ACME 邮箱。
+  1. 在源码目录的 dfm.conf 中设置网站根目录、MySQL 数据目录、PHP 分支、ACME 邮箱；安装会覆盖 /etc/dfm.conf。
   2. 以 root 运行 ./install.sh，按提示选择 PHP 分支与 MySQL 版本。
   3. 用 dfm status 检查 frankenphp 与 mysql 均为 active。
   4. 用 dfm vhost add 创建站点，默认启用 HTTPS，询问时选 n 可创建仅 HTTP 站点；也可直接用 dfm vhost add-http。域名解析到本机后 Caddy 自动签发证书，用 dfm vhost cert <域名> 查看状态与报错。后期要给 HTTP 站点补证书时，用 dfm vhost add-ssl <域名> 切换，无需重建。
@@ -44,6 +44,7 @@ MySQL 的安装、数据目录迁移和选版逻辑保持不变。
   路径说明与完整目录树  docs/paths.md
   卸载与数据保留        docs/uninstall.md
   手动升级              docs/upgrade.md
-  安装器备份文件        docs/backup.md
+  手动备份配置与证书    docs/backup.md
+  安装器备份文件        docs/installer-backups.md
 
 文档使用纯文本排版，便于在编辑器中直接阅读和搜索。
