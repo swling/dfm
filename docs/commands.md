@@ -4,7 +4,7 @@
 
     dfm {start|stop|restart|reload|kill|status}
     dfm {frankenphp|mysql|mariadb} {start|stop|restart|reload|kill|status}
-    dfm vhost {add|list|del}
+    dfm vhost {add|list|del|cert <domain>}
     dfm addons {install|uninstall} <addon>
 
 DFM 没有 ssl / dnsssl / onlyssl 命令：证书由 Caddy 自动管理。
@@ -56,7 +56,20 @@ mariadb 作为 mysql 的别名保留，便于沿用旧命令习惯。
     }
 
 写入后会执行 frankenphp validate；验证失败时删除新文件并报错。
+reload 前记录时间点，随后轮询证书存储：默认每 2 秒检查一次，最多 60 秒，
+证书一出现就立即结束，只输出路径与有效期；超时只报“等待期内未签发”，不判定签发失败。
+未签发时才摘出这段时间内 journalctl -u frankenphp 的 TLS/ACME 相关日志
+（含域名、acme、certificate、tls、challenge 等关键词），并给出查看完整日志的命令。
 站点文件直接放在 Caddyfile.d/ 下，不使用 sites-available/sites-enabled。
+
+## 查看证书状态
+
+    dfm vhost cert <域名>
+
+同样采用轮询：证书存在时显示 issued、文件路径与有效期，并立即返回，不输出日志；
+等待期内未出现证书则显示 pending，并注明已等待秒数，Caddy 仍可能在后台重试，
+此时才摘出最近 1 小时内该域名的 TLS/ACME 日志，并给出查看完整日志的命令。
+等待可用 Ctrl+C 中止。
 
 ## 列出与删除站点
 

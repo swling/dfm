@@ -17,13 +17,16 @@ CADDYFILE="${FRANKENPHP_CONFIG_DIR}/Caddyfile"
 WEB_ROOT="${WEB_ROOT:-/home/wwwroot}"
 DEFAULT_WEB_ROOT="${DEFAULT_WEB_ROOT:-${WEB_ROOT}/default}"
 FRANKENPHP_LOG_DIR="${FRANKENPHP_LOG_DIR:-/var/log/frankenphp}"
+CADDY_DATA_DIR="${CADDY_DATA_DIR:-/var/lib/frankenphp/caddy}"
+CERT_WAIT_TIMEOUT=60
+CERT_POLL_INTERVAL=2
 
 usage() {
     cat <<'EOF'
 Usage:
   dfm {start|stop|restart|reload|kill|status}
   dfm {frankenphp|mysql} {start|stop|restart|reload|kill|status}
-  dfm vhost {add|list|del}
+  dfm vhost {add|list|del|cert <domain>}
   dfm addons {install|uninstall} <addon>
 
 HTTPS certificates are handled automatically by Caddy for domain site blocks.
@@ -68,6 +71,47 @@ stop_other_frankenphp() {
         sleep 0.2
     fi
     printf 'Existing FrankenPHP processes stopped.\n'
+}
+
+check_certificate() {
+    local domain=$1 since=$2 cert= elapsed=0 lines expiry
+
+    printf 'Waiting up to %ss for certificate (polling every %ss)...\n' \
+        "$CERT_WAIT_TIMEOUT" "$CERT_POLL_INTERVAL"
+    while :; do
+        cert="$(find "$CADDY_DATA_DIR/certificates" -type f -name "${domain}.crt" -print -quit 2>/dev/null || true)"
+        [[ -n "$cert" ]] && break
+        ((elapsed >= CERT_WAIT_TIMEOUT)) && break
+        sleep "$CERT_POLL_INTERVAL"
+        elapsed=$((elapsed + CERT_POLL_INTERVAL))
+    done
+
+    printf 'HTTPS certificate:\n'
+    printf '  Domain: %s\n' "$domain"
+    if [[ -n "$cert" ]]; then
+        printf '  Status: issued\n'
+        printf '  File:   %s\n' "$cert"
+        if command -v openssl >/dev/null 2>&1; then
+            expiry="$(openssl x509 -enddate -noout -in "$cert" 2>/dev/null | cut -d= -f2 || true)"
+            [[ -n "$expiry" ]] && printf '  Expiry: %s\n' "$expiry"
+        fi
+        return 0
+    fi
+
+    printf '  Status: pending after %ss (Caddy keeps retrying in the background)\n' "$elapsed"
+    if command -v journalctl >/dev/null 2>&1; then
+        sleep 1
+        lines="$(journalctl -u frankenphp --since "$since" --no-pager 2>/dev/null |
+            awk -v d="$domain" 'index($0, d) || tolower($0) ~ /acme|certificate|tls|challenge|letsencrypt|http-01|dns-01/' |
+            tail -n 20 || true)"
+        if [[ -n "$lines" ]]; then
+            printf 'Caddy TLS/ACME log:\n'
+            printf '%s\n' "$lines" | sed 's/^/  /'
+        fi
+    fi
+
+    printf '  Log:    journalctl -u frankenphp -n 100 --no-pager\n'
+    printf '          journalctl -u frankenphp --since "-1h" --no-pager | grep -i "%s"\n' "$domain"
 }
 
 valid_domain() {
@@ -130,7 +174,7 @@ service_bundle() {
 
 create_vhost_config() {
     local domain=$1 names=$2 webroot=$3 rewrite=$4 log_block=$5
-    local config="${SITE_DIR}/${domain}.caddyfile" addresses name
+    local config="${SITE_DIR}/${domain}.caddyfile" addresses name cert_log_since
 
     [[ ! -e "$config" && ! -L "$config" ]] ||
         fail "Virtual host already exists: $domain"
@@ -171,12 +215,13 @@ ${addresses} {
 ${log_block}
 }
 EOF
+    cert_log_since="$(date '+%Y-%m-%d %H:%M:%S')"
     if ! reload_frankenphp; then
         rm -f "$config"
         fail "FrankenPHP rejected the new virtual host; its config was removed."
     fi
     printf 'Virtual host created: %s\nWeb root: %s\n' "$domain" "$webroot"
-    printf 'HTTPS: Caddy will obtain a certificate on the first request over HTTPS.\n'
+    check_certificate "$domain" "$cert_log_since"
 }
 
 add_vhost() {
@@ -257,6 +302,16 @@ delete_vhost() {
     printf 'Site config deleted. Website files were not removed: %s\n' "$domain"
 }
 
+show_certificate() {
+    local domain=$1
+    require_root
+    valid_domain "$domain" || fail "Invalid domain name."
+    [[ -f "${SITE_DIR}/${domain}.caddyfile" ]] ||
+        fail "Virtual host does not exist: $domain"
+
+    check_certificate "$domain" "-1h"
+}
+
 case "${1:-}" in
     --help|-h)
         usage
@@ -292,6 +347,10 @@ case "${1:-}" in
             add) add_vhost ;;
             list) list_vhosts ;;
             del) delete_vhost ;;
+            cert)
+                [[ $# -eq 3 ]] || { usage >&2; exit 2; }
+                show_certificate "$3"
+                ;;
             *) usage >&2; exit 2 ;;
         esac
         ;;
