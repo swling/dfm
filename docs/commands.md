@@ -4,10 +4,12 @@
 
     dfm {start|stop|restart|reload|kill|status}
     dfm {frankenphp|mysql|mariadb} {start|stop|restart|reload|kill|status}
-    dfm vhost {add|list|del|cert <domain>}
+    dfm vhost {add|add-http|list|del|cert <domain>}
+    dfm vhost {add-ssl|enable-https} <domain>
     dfm addons {install|uninstall} <addon>
 
-DFM 没有 ssl / dnsssl / onlyssl 命令：证书由 Caddy 自动管理。
+DFM 没有手工签发证书的 ssl / dnsssl / onlyssl 命令：证书由 Caddy 自动管理。
+把已有 HTTP 站点切到 HTTPS 用 add-ssl（别名 enable-https）。
 mariadb 作为 mysql 的别名保留，便于沿用旧命令习惯。
 
 ## 服务操作
@@ -23,13 +25,18 @@ mariadb 作为 mysql 的别名保留，便于沿用旧命令习惯。
 
     dfm vhost add
 
+`dfm vhost add` 默认启用 HTTPS；回答 HTTPS 询问为 n 即创建仅 HTTP 的站点。
+也可直接用 `dfm vhost add-http` 进入 HTTP 模式，跳过该询问，其余步骤相同。
+后期要补证书时不用重建站点，用 `dfm vhost add-ssl <域名>` 切换即可。
+
 依次询问：
 
   1. 主域名（通配符域名需自行配置 DNS 挑战，向导不接受）。
   2. 附加域名，多个名称用空格分隔，写入同一个站点地址行。
   3. 网站根目录，默认 WEB_ROOT/<域名>；不存在时创建并设为 www:www、0775。
   4. 是否启用伪静态，以及使用哪个 rewrite 片段。
-  5. 是否开启访问日志；开启时写入 /var/log/frankenphp/<域名>.log。
+  5. 是否启用 HTTPS 并自动申请证书？[Y/n]：回车或 Y 为 HTTPS，n 为仅 HTTP。
+  6. 是否开启访问日志；开启时写入 /var/log/frankenphp/<域名>.log。
 
 生成的站点配置类似：
 
@@ -55,12 +62,36 @@ mariadb 作为 mysql 的别名保留，便于沿用旧命令习惯。
         }
     }
 
+选择仅 HTTP 时，站点地址会加上 http:// 前缀，Caddy 不再为该站点申请证书，
+也不会做 HTTP 到 HTTPS 跳转；配置第二行记录 # Scheme: http：
+
+    # Managed by DFM. Site: example.com
+    # Scheme: http
+    http://example.com, http://www.example.com {
+        root * /home/wwwroot/example.com
+        ...
+    }
+
 写入后会执行 frankenphp validate；验证失败时删除新文件并报错。
 reload 前记录时间点，随后轮询证书存储：默认每 2 秒检查一次，最多 60 秒，
 证书一出现就立即结束，只输出路径与有效期；超时只报“等待期内未签发”，不判定签发失败。
 未签发时才摘出这段时间内 journalctl -u frankenphp 的 TLS/ACME 相关日志
 （含域名、acme、certificate、tls、challenge 等关键词），并给出查看完整日志的命令。
 站点文件直接放在 Caddyfile.d/ 下，不使用 sites-available/sites-enabled。
+
+## 后期把 HTTP 站点切到 HTTPS
+
+    dfm vhost add-ssl <域名>
+    dfm vhost enable-https <域名>
+
+用于“先建 HTTP、之后再补 SSL”的场景。命令只改站点地址行：去掉每个地址的
+http:// 前缀，并把 # Scheme: http 改成 # Scheme: https；网站目录、伪静态、
+访问日志与附加域名都保持不变。老配置没有方案标记时，会在地址行前补一行
+`# Scheme: https`，之后 `dfm vhost cert <域名>` 就能正常等待证书。
+
+改动前保留原文件副本，先 frankenphp validate 再 reload；校验失败会还原配置。
+切换成功后按常规流程轮询证书状态，超时只表示等待期内未签发，Caddy 仍会后台重试。
+已经是 HTTPS 的站点会直接提示，不做改动。
 
 ## 查看证书状态
 
@@ -70,6 +101,7 @@ reload 前记录时间点，随后轮询证书存储：默认每 2 秒检查一�
 等待期内未出现证书则显示 pending，并注明已等待秒数，Caddy 仍可能在后台重试，
 此时才摘出最近 1 小时内该域名的 TLS/ACME 日志，并给出查看完整日志的命令。
 等待可用 Ctrl+C 中止。
+若站点是仅 HTTP 模式，该命令直接提示不申请证书，不进入等待。
 
 ## 列出与删除站点
 
@@ -120,6 +152,8 @@ reload 前记录时间点，随后轮询证书存储：默认每 2 秒检查一�
 ## HTTPS 与证书
 
   - 站点地址使用域名时，Caddy 自动申请和续期证书，不需要任何 dfm ssl 命令。
+  - 添加站点时选择仅 HTTP，站点地址写成 http://<域名>，Caddy 不申请证书，
+    也不跳转 HTTPS；适合内网域名、证书尚未就绪或暂时只用 80 端口的场景。
   - 首次签发需要域名解析到本机且 80/443 端口可访问。
   - 证书与密钥存放在 /var/lib/frankenphp/caddy，不放在 /etc/frankenphp/ssl。
   - 查看证书相关数据请直接查看该目录；不要手工编辑 Caddy 的证书存储。

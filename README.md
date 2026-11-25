@@ -31,7 +31,7 @@ MySQL 的安装、数据目录迁移和选版逻辑保持不变。
   1. 在 /etc/dfm.conf 中设置网站根目录、MySQL 数据目录、PHP 分支、ACME 邮箱。
   2. 以 root 运行 ./install.sh，按提示选择 PHP 分支与 MySQL 版本。
   3. 用 dfm status 检查 frankenphp 与 mysql 均为 active。
-  4. 用 dfm vhost add 创建站点，域名解析到本机后 Caddy 自动签发证书；用 dfm vhost cert <域名> 查看状态与报错。
+  4. 用 dfm vhost add 创建站点，默认启用 HTTPS，询问时选 n 可创建仅 HTTP 站点；也可直接用 dfm vhost add-http。域名解析到本机后 Caddy 自动签发证书，用 dfm vhost cert <域名> 查看状态与报错。后期要给 HTTP 站点补证书时，用 dfm vhost add-ssl <域名> 切换，无需重建。
   5. 按需用 dfm addons install <扩展> 安装 php-zts 扩展。
   6. 修改配置后 dfm reload 会先校验 Caddyfile 再重载服务。
   7. 需要拆除时用 ./uninstall.sh --component=... 按组件卸载。

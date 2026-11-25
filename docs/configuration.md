@@ -50,7 +50,13 @@
                  默认站点是 default.caddyfile，其他站点按域名命名。
   证书存储       storage file_system /var/lib/frankenphp/caddy。
                  备份服务器时需要包含该目录，否则恢复后证书要重新签发。
-  自动 HTTPS     域名站点自动签发和续期证书；http:// 站点不签发证书。
+  自动 HTTPS     dfm vhost add 默认创建域名站点并自动签发、续期证书；
+                 选择仅 HTTP（或 dfm vhost add-http）时地址加 http:// 前缀，
+                 不签发证书，也不做 HTTP 到 HTTPS 跳转。
+  站点方案标记   仅 HTTP 的站点配置第二行写入 # Scheme: http，
+                 dfm vhost cert 据此跳过证书等待。
+                 dfm vhost add-ssl 会把标记改为 https 并去掉地址上的 http:// 前缀，
+                 老配置缺少标记时会在地址行前补写 # Scheme: https。
   默认站点       从 conf/default-site.caddyfile 渲染，按 DEFAULT_WEB_ROOT 设置根目录，
                  只提供 HTTP，安装时直接覆盖 default.caddyfile。
   静态缓存       conf/cache-static.caddyfile 部署到 /etc/frankenphp/cache-static.caddyfile，

@@ -42,7 +42,7 @@
 │   │   ├── Caddyfile                     # [包] [DFM] 主配置（首次安装备份为 .dfm.orig）
 │   │   ├── Caddyfile.d/                  # [DFM] 站点目录，由主配置 import
 │   │   │   ├── default.caddyfile         # [DFM] HTTP 默认站点
-│   │   │   ├── example.com.caddyfile     # [DFM] 域名站点（自动 HTTPS）
+│   │   │   ├── example.com.caddyfile     # [DFM] 域名站点（默认自动 HTTPS，可选仅 HTTP）
 │   │   │   └── <domain>.caddyfile        # [DFM] 其他站点
 │   │   │
 │   │   ├── cache-static.caddyfile        # [DFM] 静态资源缓存头片段

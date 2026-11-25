@@ -72,7 +72,8 @@
 ## 与 LNMP 版本的行为差异
 
   - 站点文件写在 /etc/frankenphp/Caddyfile.d/<域名>.caddyfile，不使用 sites-enabled。
-  - 默认站点只监听 HTTP；域名站点自动启用 HTTPS 与 HTTP 到 HTTPS 跳转。
+  - 默认站点只监听 HTTP；域名站点默认启用 HTTPS 与 HTTP 到 HTTPS 跳转，
+    添加站点时选择仅 HTTP 或运行 dfm vhost add-http 时只监听 80 端口。
   - 伪静态片段是 Caddyfile 语法，php_server 已内置 try_files 与 PATH_INFO 处理。
   - 不需要为证书开放单独的 .well-known 目录，Caddy 自己处理 ACME 校验请求。
   - 隐藏文件访问由站点块中的 @dotfiles 匹配器返回 404。

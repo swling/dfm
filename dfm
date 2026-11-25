@@ -26,11 +26,15 @@ usage() {
 Usage:
   dfm {start|stop|restart|reload|kill|status}
   dfm {frankenphp|mysql} {start|stop|restart|reload|kill|status}
-  dfm vhost {add|list|del|cert <domain>}
+  dfm vhost {add|add-http|list|del|cert <domain>}
+  dfm vhost {add-ssl|enable-https} <domain>
   dfm addons {install|uninstall} <addon>
 
 HTTPS certificates are handled automatically by Caddy for domain site blocks.
-There are no ssl / dnsssl commands in DFM.
+"dfm vhost add" enables HTTPS by default and can choose HTTP-only when asked.
+"dfm vhost add-http" creates an HTTP-only site without asking again.
+"dfm vhost add-ssl" converts an HTTP-only site to HTTPS later, keeping its config.
+There are no manual ssl / dnsssl certificate commands in DFM.
 EOF
 }
 
@@ -173,20 +177,29 @@ service_bundle() {
 }
 
 create_vhost_config() {
-    local domain=$1 names=$2 webroot=$3 rewrite=$4 log_block=$5
-    local config="${SITE_DIR}/${domain}.caddyfile" addresses name cert_log_since
+    local domain=$1 names=$2 webroot=$3 rewrite=$4 log_block=$5 scheme=$6
+    local config="${SITE_DIR}/${domain}.caddyfile" addresses name prefix cert_log_since
 
     [[ ! -e "$config" && ! -L "$config" ]] ||
         fail "Virtual host already exists: $domain"
+    [[ "$scheme" == https || "$scheme" == http ]] || fail "Invalid scheme: $scheme"
     [[ "$webroot" == /* && "$webroot" =~ ^/[A-Za-z0-9_./-]+$ ]] ||
         fail "Web root must be an absolute path using only letters, digits, dot, underscore, slash, or hyphen."
     [[ "$rewrite" =~ ^[A-Za-z0-9_-]+$ ]] || fail "Invalid rewrite profile name."
     [[ -e "${REWRITE_DIR}/${rewrite}.caddyfile" || -L "${REWRITE_DIR}/${rewrite}.caddyfile" ]] ||
         fail "Rewrite profile does not exist: ${rewrite}"
 
-    addresses="$domain"
+    # An explicit http:// scheme disables Caddy's automatic HTTPS for this site.
+    if [[ "$scheme" == http ]]; then
+        addresses="http://${domain}"
+        prefix="http://"
+    else
+        addresses="$domain"
+        prefix=""
+    fi
     for name in $names; do
-        addresses+=", ${name}"
+        [[ "$name" == "$domain" ]] && continue
+        addresses+=", ${prefix}${name}"
     done
 
     if [[ ! -d "$webroot" ]]; then
@@ -197,6 +210,7 @@ create_vhost_config() {
 
     cat > "$config" <<EOF
 # Managed by DFM. Site: ${domain}
+# Scheme: ${scheme}
 ${addresses} {
     root * ${webroot}
     encode zstd br gzip
@@ -221,13 +235,20 @@ EOF
         fail "FrankenPHP rejected the new virtual host; its config was removed."
     fi
     printf 'Virtual host created: %s\nWeb root: %s\n' "$domain" "$webroot"
-    check_certificate "$domain" "$cert_log_since"
+    if [[ "$scheme" == http ]]; then
+        printf 'Scheme: http (no certificate requested).\n'
+    else
+        check_certificate "$domain" "$cert_log_since"
+    fi
 }
 
 add_vhost() {
+    local forced_scheme=${1:-} scheme https_choice
     local domain more_names webroot rewrite allow_rewrite
     local access_choice log_file log_block name
     local -a additional_names rewrite_profiles
+    [[ -z "$forced_scheme" || "$forced_scheme" == https || "$forced_scheme" == http ]] ||
+        fail "Invalid scheme: $forced_scheme"
     require_root
     require_frankenphp
     read -r -p "Please enter domain (example: www.example.com): " domain
@@ -260,6 +281,18 @@ add_vhost() {
     [[ "$rewrite" =~ ^[A-Za-z0-9_-]+$ ]] || fail "Invalid rewrite profile name."
     printf 'Using rewrite profile: %s\n' "$rewrite"
 
+    if [[ -n "$forced_scheme" ]]; then
+        scheme="$forced_scheme"
+    else
+        read -r -p "Enable HTTPS with an automatic certificate? [Y/n]: " https_choice
+        if [[ "$https_choice" =~ ^[Nn]$ ]]; then
+            scheme=http
+        else
+            scheme=https
+        fi
+    fi
+    printf 'Using scheme: %s\n' "$scheme"
+
     # In classic mode php_server splits PATH_INFO by default, so there is no
     # separate Pathinfo prompt like the old FastCGI vhost flow.
 
@@ -273,7 +306,7 @@ add_vhost() {
     }"
     fi
 
-    create_vhost_config "$domain" "$domain $more_names" "$webroot" "$rewrite" "$log_block"
+    create_vhost_config "$domain" "$domain $more_names" "$webroot" "$rewrite" "$log_block" "$scheme"
 }
 
 list_vhosts() {
@@ -308,8 +341,63 @@ show_certificate() {
     valid_domain "$domain" || fail "Invalid domain name."
     [[ -f "${SITE_DIR}/${domain}.caddyfile" ]] ||
         fail "Virtual host does not exist: $domain"
+    if grep -qx '# Scheme: http' "${SITE_DIR}/${domain}.caddyfile"; then
+        printf 'HTTP-only site: no HTTPS certificate is requested for %s.\n' "$domain"
+        return 0
+    fi
 
     check_certificate "$domain" "-1h"
+}
+
+enable_https() {
+    local domain=$1 config backup tmp cert_log_since
+    require_root
+    require_frankenphp
+    valid_domain "$domain" || fail "Invalid domain name."
+    config="${SITE_DIR}/${domain}.caddyfile"
+    [[ -f "$config" && ! -L "$config" ]] || fail "Virtual host does not exist: $domain"
+    if ! grep -q '^http://' "$config" && ! grep -qx '# Scheme: http' "$config"; then
+        fail "Site is not HTTP-only; HTTPS is already enabled: $domain"
+    fi
+
+    backup="$(mktemp)"
+    tmp="$(mktemp)"
+    cat -- "$config" > "$backup"
+    awk '
+        BEGIN { scheme = 0; done = 0 }
+        /^# Scheme:/ {
+            if ($0 == "# Scheme: http") {
+                print "# Scheme: https"
+            } else {
+                print
+            }
+            scheme = 1
+            next
+        }
+        {
+            if (!done && $0 ~ /^[^#[:space:]].* \{$/) {
+                gsub(/http:\/\//, "")
+                done = 1
+                if (!scheme) print "# Scheme: https"
+            }
+            print
+        }
+    ' "$backup" > "$tmp"
+    if grep -q '^http://' "$tmp"; then
+        rm -f "$tmp" "$backup"
+        fail "Could not convert the site address line; original config is unchanged."
+    fi
+
+    cert_log_since="$(date '+%Y-%m-%d %H:%M:%S')"
+    cat -- "$tmp" > "$config"
+    if ! reload_frankenphp; then
+        cat -- "$backup" > "$config"
+        rm -f "$tmp" "$backup"
+        fail "FrankenPHP rejected the change; the site config was restored."
+    fi
+    rm -f "$tmp" "$backup"
+    printf 'HTTPS enabled for site: %s\n' "$domain"
+    check_certificate "$domain" "$cert_log_since"
 }
 
 case "${1:-}" in
@@ -345,6 +433,11 @@ case "${1:-}" in
     vhost)
         case "${2:-}" in
             add) add_vhost ;;
+            add-http) add_vhost http ;;
+            add-ssl|enable-https)
+                [[ $# -eq 3 ]] || { usage >&2; exit 2; }
+                enable_https "$3"
+                ;;
             list) list_vhosts ;;
             del) delete_vhost ;;
             cert)
