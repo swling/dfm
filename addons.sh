@@ -38,7 +38,7 @@ prepare_addon() {
     ADDON_SERVICES=()
     case "$addon" in
         memcached)
-            ADDON_PACKAGES=(php-zts-memcached)
+            ADDON_PACKAGES=(memcached php-zts-memcached)
             ADDON_SERVICES=(memcached)
             ;;
         opcache)
@@ -49,7 +49,7 @@ prepare_addon() {
             fi
             ;;
         redis)
-            ADDON_PACKAGES=(php-zts-redis)
+            ADDON_PACKAGES=(redis-server php-zts-redis)
             ADDON_SERVICES=(redis-server)
             ;;
         apcu) ADDON_PACKAGES=(php-zts-apcu) ;;
@@ -127,7 +127,11 @@ addon_action() {
     if [[ "$action" == install ]]; then
         apt-get install -y "${available_packages[@]}"
         for package in "${ADDON_SERVICES[@]}"; do
-            systemctl enable --now "$package"
+            if systemctl cat "$package" >/dev/null 2>&1; then
+                systemctl enable --now "$package"
+            else
+                printf 'Warning: systemd unit %s not found; skipping enable.\n' "$package" >&2
+            fi
         done
         restart_frankenphp
         printf '%s installed.\n' "$addon"
