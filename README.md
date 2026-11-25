@@ -19,11 +19,12 @@ MySQL 的安装、数据目录迁移和选版逻辑保持不变。
   dfm               安装后的管理命令：服务、虚拟主机、扩展入口（内置 addons）
   addons.sh         扩展管理独立脚本，保留在本目录，可在当前目录直接运行
   uninstall.sh      按 mysql / frankenphp / all 卸载，保留数据
+  upgrade.sh        按 frankenphp / php / mysql 手动升级
   sync-dfm.sh       把 dfm 同步到系统命令路径
   backup.md         手动备份配置与证书目录的命令
   conf/             Caddyfile、默认站点、静态缓存片段模板
   rewrite/          常见程序的 Caddyfile 伪静态片段
-  docs/             安装、配置、命令、路径、卸载文档
+  docs/             安装、配置、命令、路径、卸载、升级文档
 
 ## 从零开始的完整流程
 
@@ -42,6 +43,7 @@ MySQL 的安装、数据目录迁移和选版逻辑保持不变。
   管理命令与站点流程    docs/commands.md
   路径说明与完整目录树  docs/paths.md
   卸载与数据保留        docs/uninstall.md
+  手动升级              docs/upgrade.md
   安装器备份文件        docs/backup.md
 
 文档使用纯文本排版，便于在编辑器中直接阅读和搜索。
