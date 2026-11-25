@@ -1,6 +1,6 @@
 # DFM 目录结构速查
 
-标注说明
+## 标注说明
 
   [DFM]      由本项目 install.sh / dfm / uninstall.sh 创建或修改。
   [包]       由软件包提供：FrankenPHP 与 php-zts 来自其 deb 仓库，
@@ -12,25 +12,27 @@
 文中 PHP 8.5 仅为示例，实际分支由安装时选择的仓库决定。
 网站根目录、日志目录与 MySQL 数据目录可由 /etc/dfm.conf 覆盖。
 
-关键路径速查
+## 关键路径速查
 
-  用户配置入口        /etc/dfm.conf                              [DFM]
-  内部状态            /etc/dfm/                                  [DFM]
-  Caddy 主配置        /etc/frankenphp/Caddyfile                  [包] [DFM]
-  默认站点            /etc/frankenphp/Caddyfile.d/default.caddyfile  [DFM]
-  站点配置            /etc/frankenphp/Caddyfile.d/<域名>.caddyfile  [DFM]
-  静态缓存片段        /etc/frankenphp/cache-static.caddyfile     [DFM]
-  伪静态片段          /etc/frankenphp/rewrite/<名称>.caddyfile    [DFM]
-  PHP 配置            /etc/php-zts/php.ini                       [包]
-  PHP 扩展 ini        /etc/php-zts/conf.d/*.ini                  [包]
-  Caddy 证书数据      /var/lib/frankenphp/caddy                  [Caddy]
-  服务覆盖配置        /etc/systemd/system/frankenphp.service.d/10-dfm.conf  [DFM]
-  MySQL 配置          /etc/mysql/                                [包] [DFM]
-  MySQL 数据          /var/lib/mysql 或 MYSQL_DATA_DIR           [包] [DFM]
-  管理命令            /usr/local/bin/dfm、/usr/local/bin/addons.sh  [DFM]
-  网站根目录          /home/wwwroot/                             [自定义]
+  用户配置入口      /etc/dfm.conf
+  内部状态          /etc/dfm/
+  Caddy 主配置      /etc/frankenphp/Caddyfile
+  默认站点          /etc/frankenphp/Caddyfile.d/default.caddyfile
+  站点配置          /etc/frankenphp/Caddyfile.d/<域名>.caddyfile
+  静态缓存片段      /etc/frankenphp/cache-static.caddyfile
+  伪静态片段        /etc/frankenphp/rewrite/<名称>.caddyfile
+  PHP 配置          /etc/php-zts/php.ini
+  PHP 扩展 ini      /etc/php-zts/conf.d/*.ini
+  Caddy 证书数据    /var/lib/frankenphp/caddy
+  服务覆盖配置      /etc/systemd/system/frankenphp.service.d/10-dfm.conf
+  MySQL 配置        /etc/mysql/
+  MySQL 数据        /var/lib/mysql 或 MYSQL_DATA_DIR
+  管理命令          /usr/local/bin/dfm
+  网站根目录        /home/wwwroot/
 
-完整目录树
+各项的来源标记见上方「标注说明」，完整布局见下方目录树。
+
+## 完整目录树
 
 /
 │
@@ -108,8 +110,7 @@
 │   │
 │   └── local/
 │       └── bin/                          # [DFM] 管理脚本
-│           ├── dfm                       # 服务、站点与扩展入口
-│           └── addons.sh                 # 扩展管理
+│           └── dfm                       # 服务、站点与扩展入口（含 addons）
 │
 │
 ├── var/                                  # 可变数据

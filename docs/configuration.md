@@ -10,7 +10,7 @@
     MYSQL_VERSION=""
     ACME_EMAIL=""
 
-变量说明
+## 变量说明
 
   WEB_ROOT            新建站点的默认父目录。
   DEFAULT_WEB_ROOT    未匹配域名时默认站点的根目录。
@@ -23,15 +23,15 @@
 所有路径必须是绝对路径，且只包含字母、数字、点、下划线、斜杠和连字符，
 不能包含 .. 段。ACME_EMAIL 必须是合法邮箱格式，否则安装器报错退出。
 
-版本变量规则
+## 版本变量规则
 
-  PHP       分支来自 FrankenPHP deb 仓库。配置值不在菜单中时警告并回退，
-            避免旧版本导致无法重装。安装器把分支记录在 /etc/dfm/php-version。
-  MySQL     版本来自 Oracle 仓库，涉及数据兼容性：配置值不在菜单中时报错退出。
-  FrankenPHP  不配置版本号，跟随所选分支仓库的 apt 候选版本；实际版本写入
-            /etc/dfm/frankenphp-version，可用 apt upgrade frankenphp 升级。
+  - PHP：分支来自 FrankenPHP deb 仓库。配置值不在菜单中时警告并回退，
+    避免旧版本导致无法重装。安装器把分支记录在 /etc/dfm/php-version。
+  - MySQL：版本来自 Oracle 仓库，涉及数据兼容性；配置值不在菜单中时报错退出。
+  - FrankenPHP：不配置版本号，跟随所选分支仓库的 apt 候选版本；实际版本写入
+    /etc/dfm/frankenphp-version，可用 apt upgrade frankenphp 升级。
 
-MySQL 数据目录迁移
+## MySQL 数据目录迁移
 
   触发条件       首次安装前设置非默认 MYSQL_DATA_DIR。
   安装器动作     把包初始化的数据迁移到目标目录。
@@ -41,7 +41,7 @@ MySQL 数据目录迁移
                  默认 /var/lib/mysql 在确认后立即清空；不做复用判断。
   已安装后更换   未安装 MySQL 包且目标目录已有数据时会提示，处理同上。
 
-Caddyfile 配置行为
+## Caddyfile 配置行为
 
   主配置         由 conf/Caddyfile 渲染到 /etc/frankenphp/Caddyfile。
                  原包自带文件首次安装时备份为 /etc/frankenphp/Caddyfile.dfm.orig。
@@ -61,13 +61,13 @@ Caddyfile 配置行为
   Worker 模式    向导使用经典模式。要启用 worker，在站点的 php_server 块中
                  添加 worker index.php，并确认应用能在内存中重复运行。
 
-PHP 配置
+## PHP 配置
 
   php.ini            /etc/php-zts/php.ini（包提供生产预设）。
   扩展 ini           /etc/php-zts/conf.d/*.ini，由 php-zts-* 包安装。
   全局覆盖           可在 Caddyfile 的 frankenphp 块中用 php_ini 指令设置。
 
-服务用户与权限
+## 服务用户与权限
 
   - FrankenPHP 包以 frankenphp:frankenphp 运行 systemd 服务。
   - 安装器创建 www 用户/组，新建的网站目录属主为 www:www、权限 0775，
@@ -76,7 +76,7 @@ PHP 配置
     /etc/systemd/system/frankenphp.service.d/10-dfm.conf 改为 ProtectHome=false，
     并通过 ReadWritePaths 允许写入 WEB_ROOT。
 
-路径速查
+## 路径速查
 
   用户配置入口        /etc/dfm.conf
   内部状态            /etc/dfm/
@@ -89,6 +89,6 @@ PHP 配置
   Caddy 证书数据      /var/lib/frankenphp/caddy
   MySQL 配置          /etc/mysql/（自定义数据目录时写入 zz-lnmp-debian.cnf）
   MySQL 数据          /var/lib/mysql 或 MYSQL_DATA_DIR
-  管理命令            /usr/local/bin/dfm、/usr/local/bin/addons.sh
+  管理命令            /usr/local/bin/dfm（addons 已内置）
 
 更完整的目录树见 paths.md。

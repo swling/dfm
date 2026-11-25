@@ -8,7 +8,7 @@
     ./uninstall.sh --component=all --yes
     ./uninstall.sh --help
 
-卸载目标
+## 卸载目标
 
   mysql       卸载 MySQL 软件包、Oracle 源与安装器生成的配置；数据目录保留。
   frankenphp  卸载 frankenphp 与 php-zts-* 包、FrankenPHP 源与 DFM 配置片段；
@@ -17,7 +17,7 @@
 
   --yes 跳过确认；未指定组件时按 all 处理。卸载前会先打印计划并再次确认。
 
-将删除
+## 将删除
 
   MySQL
     /etc/mysql/mysql.conf.d/zz-lnmp-debian.cnf
@@ -33,21 +33,21 @@
     /etc/dfm/php-version、/etc/dfm/frankenphp-version
 
   all 额外删除
-    /usr/local/bin/dfm、/usr/bin/dfm、/usr/local/bin/addons.sh
+    /usr/local/bin/dfm、/usr/bin/dfm
     /etc/dfm.conf 与 /etc/dfm/
     www 用户/组
 
-将保留（仅警告，不处理）
+## 将保留（仅警告，不处理）
 
   - MySQL 数据目录及其备份，包括独立磁盘上的数据。
   - 网站文件。
   - /etc/frankenphp/Caddyfile.d/ 下全部站点配置（含 default.caddyfile）。
   - /var/lib/frankenphp/caddy 中的 Caddy 自动证书数据。
   - /var/log/frankenphp/ 中的访问日志。
-  - 通过 addons.sh 安装的 memcached、redis-server 等独立服务包。
+  - 通过 dfm addons 安装的 memcached、redis-server 等独立服务包。
   - 自定义伪静态片段、*.dfm.orig 与 *.lnmp-debian.orig 备份。
 
-执行流程
+## 执行流程
 
   1. 解析参数、确认 root 与目标组件。
   2. 读取 /etc/dfm.conf，收集待 purge 的软件包。
@@ -56,7 +56,7 @@
   5. 以 apt-get purge 与 autoremove --purge 清理软件包。
   6. 执行 systemctl daemon-reload 并打印未处理的数据清单。
 
-卸载后重装
+## 卸载后重装
 
   - MySQL 包未安装且 MYSQL_DATA_DIR 已有数据时，install.sh 会提示
     输入 clear 全新安装或终止，不做旧数据复用判断。
