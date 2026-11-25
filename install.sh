@@ -565,9 +565,10 @@ ensure_web_user() {
         useradd --system --gid www --home-dir /home/wwwroot --no-create-home \
             --shell /usr/sbin/nologin www
     fi
-    # The package service user reads site files owned by www:www.
+    # The deb package adds frankenphp to www-data. "grep -w www" also matches
+    # www-data, so compare the full group name instead.
     if getent passwd frankenphp >/dev/null &&
-       ! id -nG frankenphp | grep -qw www; then
+       ! id -nG frankenphp | tr ' ' '\n' | grep -Fxq www; then
         usermod -aG www frankenphp
         info "Added frankenphp to the www group."
     fi
