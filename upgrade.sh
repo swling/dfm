@@ -275,6 +275,29 @@ sync_management_commands() {
     "${SCRIPT_DIR}/sync-dfm.sh"
 }
 
+stop_other_frankenphp() {
+    local -a pids=()
+    local _
+
+    systemctl stop frankenphp >/dev/null 2>&1 || true
+
+    mapfile -t pids < <(pgrep -x frankenphp 2>/dev/null || true)
+    ((${#pids[@]} > 0)) || return 0
+
+    printf 'Stopping existing FrankenPHP processes...\n'
+    kill -TERM "${pids[@]}" 2>/dev/null || true
+    for _ in {1..25}; do
+        mapfile -t pids < <(pgrep -x frankenphp 2>/dev/null || true)
+        ((${#pids[@]} == 0)) && break
+        sleep 0.2
+    done
+    if ((${#pids[@]} > 0)); then
+        kill -KILL "${pids[@]}" 2>/dev/null || true
+        sleep 0.2
+    fi
+    printf 'Existing FrankenPHP processes stopped.\n'
+}
+
 finish_frankenphp_upgrade() {
     local branch=$1 installed
     installed="$(dpkg-query -W -f='${Version}' frankenphp 2>/dev/null || true)"
@@ -285,7 +308,8 @@ finish_frankenphp_upgrade() {
     systemctl daemon-reload
     /usr/bin/frankenphp validate --config "${FRANKENPHP_CONFIG_DIR}/Caddyfile" ||
         fail "Caddyfile validation failed; check ${FRANKENPHP_CONFIG_DIR}/Caddyfile."
-    systemctl restart frankenphp || fail "FrankenPHP failed to restart."
+    stop_other_frankenphp
+    systemctl start frankenphp || fail "FrankenPHP failed to start."
     systemctl is-active --quiet frankenphp || fail "FrankenPHP is not active after the upgrade."
     sync_management_commands
     printf 'FrankenPHP is active; installed APT version: %s\n' "$installed"

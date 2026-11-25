@@ -45,6 +45,31 @@ require_frankenphp() {
         fail "DFM is not installed. Run dfm/install.sh first."
 }
 
+stop_other_frankenphp() {
+    local -a pids=()
+    local _
+
+    # Stop the managed unit first so systemd does not restart the process
+    # while we are cleaning up leftover instances.
+    systemctl stop frankenphp >/dev/null 2>&1 || true
+
+    mapfile -t pids < <(pgrep -x frankenphp 2>/dev/null || true)
+    ((${#pids[@]} > 0)) || return 0
+
+    printf 'Stopping existing FrankenPHP processes...\n'
+    kill -TERM "${pids[@]}" 2>/dev/null || true
+    for _ in {1..25}; do
+        mapfile -t pids < <(pgrep -x frankenphp 2>/dev/null || true)
+        ((${#pids[@]} == 0)) && break
+        sleep 0.2
+    done
+    if ((${#pids[@]} > 0)); then
+        kill -KILL "${pids[@]}" 2>/dev/null || true
+        sleep 0.2
+    fi
+    printf 'Existing FrankenPHP processes stopped.\n'
+}
+
 valid_domain() {
     [[ "$1" =~ ^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$ ]]
 }
@@ -83,6 +108,9 @@ service_action() {
         esac
         printf '%s %s...\n' "$verb" "$label"
         systemctl daemon-reload
+        if [[ "$service" == frankenphp && ( "$action" == start || "$action" == restart ) ]]; then
+            stop_other_frankenphp
+        fi
         if [[ "$action" == reload && "$service" == frankenphp ]]; then
             validate_config
         fi

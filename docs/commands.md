@@ -13,6 +13,7 @@ mariadb 作为 mysql 的别名保留，便于沿用旧命令习惯。
 ## 服务操作
 
   - start / stop / restart / reload 作用于 frankenphp 与 mysql 两个服务。
+  - 启动或重启 frankenphp 前，会先停止 systemd 单元并结束残留的 frankenphp 进程，避免旧实例占用 80/443 端口；一台机器只保留一个 frankenphp 实例。
   - kill 映射为 systemd 正常停止，不发送强制终止信号。
   - status 只显示两项服务的 active / inactive 状态。
   - 单项命令只对指定服务操作；reload frankenphp 前会先校验 Caddyfile。

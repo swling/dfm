@@ -657,15 +657,41 @@ install_management_commands() {
     ln -sfn /usr/local/bin/dfm /usr/bin/dfm
 }
 
+stop_other_frankenphp() {
+    local -a pids=()
+    local _
+
+    # Stop the managed unit first so systemd does not restart the process
+    # while we are cleaning up leftover instances.
+    systemctl stop frankenphp >/dev/null 2>&1 || true
+
+    mapfile -t pids < <(pgrep -x frankenphp 2>/dev/null || true)
+    ((${#pids[@]} > 0)) || return 0
+
+    printf 'Stopping existing FrankenPHP processes...\n'
+    kill -TERM "${pids[@]}" 2>/dev/null || true
+    for _ in {1..25}; do
+        mapfile -t pids < <(pgrep -x frankenphp 2>/dev/null || true)
+        ((${#pids[@]} == 0)) && break
+        sleep 0.2
+    done
+    if ((${#pids[@]} > 0)); then
+        kill -KILL "${pids[@]}" 2>/dev/null || true
+        sleep 0.2
+    fi
+    printf 'Existing FrankenPHP processes stopped.\n'
+}
+
 start_and_verify_services() {
     /usr/bin/frankenphp validate --config "${FRANKENPHP_CONFIG_DIR}/Caddyfile" ||
         fail "FrankenPHP rejected the generated Caddyfile."
     systemctl daemon-reload
-    systemctl enable --now frankenphp mysql
-    # The package post-install starts the service with its own Caddyfile;
-    # restart once so the DFM config and the systemd drop-in are both applied.
-    systemctl restart frankenphp ||
-        fail "Could not restart FrankenPHP with the DFM configuration."
+    # The package post-install may start FrankenPHP with its own Caddyfile;
+    # stop it first so the DFM config is applied on a clean start.
+    stop_other_frankenphp
+    systemctl enable frankenphp mysql
+    systemctl start frankenphp mysql ||
+        fail "Could not start FrankenPHP and MySQL with the DFM configuration."
     systemctl is-active --quiet frankenphp || fail "FrankenPHP did not start."
     systemctl is-active --quiet mysql || fail "MySQL did not start."
 }

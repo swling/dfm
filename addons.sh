@@ -26,6 +26,29 @@ require_frankenphp() {
         fail "FrankenPHP is not installed. Install DFM first."
 }
 
+stop_other_frankenphp() {
+    local -a pids=()
+    local _
+
+    systemctl stop frankenphp >/dev/null 2>&1 || true
+
+    mapfile -t pids < <(pgrep -x frankenphp 2>/dev/null || true)
+    ((${#pids[@]} > 0)) || return 0
+
+    printf 'Stopping existing FrankenPHP processes...\n'
+    kill -TERM "${pids[@]}" 2>/dev/null || true
+    for _ in {1..25}; do
+        mapfile -t pids < <(pgrep -x frankenphp 2>/dev/null || true)
+        ((${#pids[@]} == 0)) && break
+        sleep 0.2
+    done
+    if ((${#pids[@]} > 0)); then
+        kill -KILL "${pids[@]}" 2>/dev/null || true
+        sleep 0.2
+    fi
+    printf 'Existing FrankenPHP processes stopped.\n'
+}
+
 package_available() {
     local candidate
     candidate="$(apt-cache policy "$1" | awk '/Candidate:/ {print $2; exit}')"
@@ -100,9 +123,11 @@ EOF
 }
 
 restart_frankenphp() {
-    if systemctl is-active --quiet frankenphp; then
-        systemctl restart frankenphp
-    fi
+    local was_active=0
+    systemctl is-active --quiet frankenphp && was_active=1
+    stop_other_frankenphp
+    ((was_active)) || return 0
+    systemctl start frankenphp
 }
 
 addon_action() {
