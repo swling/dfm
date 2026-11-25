@@ -1,0 +1,3 @@
+# DFM rewrite profile: none.
+# Intentionally empty. php_server still serves existing files and falls back
+# to index.php for missing paths, which is the plain PHP behavior.

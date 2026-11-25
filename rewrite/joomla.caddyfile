@@ -1,0 +1,3 @@
+# DFM rewrite profile: Joomla.
+# php_server already falls back to index.php for non-existing paths and
+# keeps the original query string, so no extra rewrite directive is needed.

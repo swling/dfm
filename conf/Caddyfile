@@ -1,0 +1,9 @@
+# Managed by DFM. Edit /etc/dfm.conf and rerun install.sh to change this file.
+# Site blocks live in /etc/frankenphp/Caddyfile.d/*.caddyfile and are imported below.
+{
+    frankenphp
+@EMAIL_LINE@
+    storage file_system /var/lib/frankenphp/caddy
+}
+
+import Caddyfile.d/*.caddyfile

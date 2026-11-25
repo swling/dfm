@@ -1,0 +1,4 @@
+# DFM rewrite profile: Laravel.
+# php_server already serves public assets when they exist and otherwise
+# rewrites to index.php with PATH_INFO, the Caddy equivalent of try_files.
+# For worker mode, add "worker index.php" to php_server in the site block.

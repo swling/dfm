@@ -1,0 +1,8 @@
+# Managed by DFM. Import this file inside a site block to set static cache headers.
+# Versioned assets: long immutable cache.
+@versioned path *.css *.js *.woff *.woff2 *.ttf *.otf *.eot *.svg *.ico
+header @versioned Cache-Control "public, max-age=31536000, immutable"
+
+# Plain images: no version in the file name, use a shorter cache.
+@images path *.png *.jpg *.jpeg *.gif *.webp *.avif
+header @images Cache-Control "public, max-age=2592000"
