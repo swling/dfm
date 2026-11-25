@@ -212,7 +212,7 @@ plan_frankenphp() {
 
 plan_all_extra() {
     REMOVE_ITEMS+=(
-        "管理命令: /usr/local/bin/dfm, /usr/local/bin/addons.sh, /usr/bin/dfm"
+        "管理命令: /usr/local/bin/dfm, /usr/bin/dfm"
         "用户配置与状态: ${SYSTEM_CONFIG}, ${STATE_DIR}"
         "www 用户/组"
     )
@@ -380,10 +380,6 @@ run_all_extra() {
             info "已删除: $cmd"
         fi
     done
-    remove_files /usr/local/bin/addons.sh
-    if [[ -e /usr/local/bin/addons.sh.dfm.orig ]]; then
-        remove_files /usr/local/bin/addons.sh.dfm.orig
-    fi
 
     step "删除 DFM 配置与状态"
     remove_files "$SYSTEM_CONFIG"

@@ -664,7 +664,6 @@ install_management_commands() {
         fi
     done
     install -m 0755 "$SCRIPT_DIR/dfm" /usr/local/bin/dfm
-    install -m 0755 "$SCRIPT_DIR/addons.sh" /usr/local/bin/addons.sh
     ln -sfn /usr/local/bin/dfm /usr/bin/dfm
 }
 
