@@ -24,6 +24,7 @@
   PHP 配置          /etc/php-zts/php.ini
   PHP 扩展 ini      /etc/php-zts/conf.d/*.ini
   Caddy 证书数据    /var/lib/frankenphp/caddy
+  服务覆盖配置      /etc/systemd/system/frankenphp.service.d/10-dfm.conf
   MySQL 配置        /etc/mysql/
   MySQL 数据        /var/lib/mysql 或 MYSQL_DATA_DIR
   管理命令          /usr/local/bin/dfm
@@ -77,6 +78,11 @@
 │   │   │
 │   │   └── keyrings/
 │   │       └── static-php85.asc          # [DFM] FrankenPHP 仓库签名密钥
+│   │
+│   ├── systemd/
+│   │   └── system/
+│   │       └── frankenphp.service.d/
+│   │           └── 10-dfm.conf           # [DFM] ProtectHome=false
 │   │
 │   ├── lnmp-debian.conf                  # 仅旧 LNMP 安装残留；DFM 不读取
 │   ├── dfm.conf                          # [DFM] 用户配置入口

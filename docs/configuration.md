@@ -72,6 +72,10 @@
   - FrankenPHP 包以 frankenphp:frankenphp 运行 systemd 服务。
   - 安装器创建 www 用户/组，新建的网站目录属主为 www:www、权限 0775，
     并把 frankenphp 加入 www 组，使其可读取和写入网站文件；已有目录不改动属主。
+  - 包自带单元设置 ProtectHome=true，会让 /home 下的站点目录不可访问；
+    DFM 写入 /etc/systemd/system/frankenphp.service.d/10-dfm.conf 改为
+    ProtectHome=false。包里的 ProtectSystem=full 不限制 /home，
+    网站文件的写权限由 www 组与目录权限控制，不需要额外的 ReadWritePaths。
 
 ## 路径速查
 
