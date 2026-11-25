@@ -27,7 +27,6 @@
 
   FrankenPHP
     还原 /etc/frankenphp/Caddyfile.dfm.orig（若存在）
-    /etc/systemd/system/frankenphp.service.d/10-dfm.conf
     内置伪静态片段与 cache-static.caddyfile
     DFM 管理的 /etc/apt/sources.list.d/static-php*.list 与对应密钥
     /etc/dfm/php-version、/etc/dfm/frankenphp-version

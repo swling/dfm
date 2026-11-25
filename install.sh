@@ -34,7 +34,6 @@ FRANKENPHP_SITE_DIR="${FRANKENPHP_CONFIG_DIR}/Caddyfile.d"
 FRANKENPHP_REWRITE_DIR="${FRANKENPHP_CONFIG_DIR}/rewrite"
 FRANKENPHP_CACHE_CONF="${FRANKENPHP_CONFIG_DIR}/cache-static.caddyfile"
 FRANKENPHP_CADDY_DATA=/var/lib/frankenphp/caddy
-FRANKENPHP_DROPIN=/etc/systemd/system/frankenphp.service.d/10-dfm.conf
 PHP_REPO_CODE=
 CLEAR_MYSQL_DATA=0
 
@@ -600,16 +599,6 @@ configure_frankenphp() {
         install -d -o frankenphp -g frankenphp -m 0755 "$FRANKENPHP_LOG_DIR"
     fi
     prepare_web_layout
-
-    # The deb package runs as frankenphp:frankenphp and ships ProtectHome=true;
-    # sites under /home/wwwroot need the relaxed drop-in below.
-    install -d -m 0755 "$(dirname "$FRANKENPHP_DROPIN")"
-    cat > "$FRANKENPHP_DROPIN" <<EOF
-[Service]
-ProtectHome=false
-ReadWritePaths=${WEB_ROOT}
-EOF
-    chmod 0644 "$FRANKENPHP_DROPIN"
 
     caddyfile="${FRANKENPHP_CONFIG_DIR}/Caddyfile"
     if [[ -f "$caddyfile" && ! -L "$caddyfile" ]] &&

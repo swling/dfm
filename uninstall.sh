@@ -11,7 +11,6 @@ STATE_DIR=/etc/dfm
 FRANKENPHP_DIR=/etc/frankenphp
 SITE_DIR="${FRANKENPHP_DIR}/Caddyfile.d"
 REWRITE_DIR="${FRANKENPHP_DIR}/rewrite"
-FRANKENPHP_DROPIN_DIR=/etc/systemd/system/frankenphp.service.d
 FRANKENPHP_MARKER='# Managed by DFM'
 CADDY_DATA=/var/lib/frankenphp/caddy
 MYSQL_LNMP_CNF=/etc/mysql/mysql.conf.d/zz-lnmp-debian.cnf
@@ -203,7 +202,6 @@ plan_mysql() {
 plan_frankenphp() {
     REMOVE_ITEMS+=(
         "还原 /etc/frankenphp/Caddyfile.dfm.orig（如存在）"
-        "systemd 覆盖配置: ${FRANKENPHP_DROPIN_DIR}/10-dfm.conf"
         "内置伪静态规则（自定义规则保留）、cache-static.caddyfile"
         "APT 仓库与密钥: /etc/apt/sources.list.d/static-php*.list、/etc/apt/keyrings/static-php*.asc（仅 DFM 管理）"
         "状态文件: ${STATE_DIR}/php-version、${STATE_DIR}/frankenphp-version"
@@ -331,19 +329,12 @@ remove_frankenphp_repository() {
 }
 
 run_frankenphp() {
-    local tpl leftover dropin
+    local tpl leftover
 
     step "卸载 FrankenPHP"
     systemctl stop frankenphp >/dev/null 2>&1 || true
 
     restore_orig "${FRANKENPHP_DIR}/Caddyfile.dfm.orig" "${FRANKENPHP_DIR}/Caddyfile"
-
-    dropin="${FRANKENPHP_DROPIN_DIR}/10-dfm.conf"
-    remove_files "$dropin"
-    if [[ -d "$FRANKENPHP_DROPIN_DIR" ]] &&
-       [[ -z "$(find "$FRANKENPHP_DROPIN_DIR" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)" ]]; then
-        rmdir -- "$FRANKENPHP_DROPIN_DIR" 2>/dev/null || true
-    fi
 
     for tpl in none other wordpress laravel joomla drupal; do
         [[ -e "${REWRITE_DIR}/${tpl}.caddyfile" || -L "${REWRITE_DIR}/${tpl}.caddyfile" ]] && {
