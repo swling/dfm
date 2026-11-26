@@ -114,8 +114,9 @@ dfm 不会替你改写配置，也不会动同一地址行的其他域名。
 签发失败时查看 journalctl -u frankenphp 中的 ACME/TLS 日志。
 
 开发调试时直接编辑 /etc/frankenphp/Caddyfile 的全局块启用 staging CA
-（见 docs/configuration.md），避开生产 CA 每周 5 张证书的限制。
-源码 conf/Caddyfile 只在主配置缺失时用于生成，改动不会写回已有文件。
+（见 docs/configuration.md）。重装不会覆盖已有主配置，所以改动会保留；
+想恢复模板时删除主配置与标记后重装。
+这样可避开生产 CA 每周 5 张证书的限制。
 
 ## 列出与删除站点
 

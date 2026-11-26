@@ -18,7 +18,7 @@
 ## 不产生备份
 
   - /usr/local/bin/dfm、/usr/bin/dfm：安装时直接覆盖实体并重建软链，不产生备份。
-  - /etc/frankenphp/Caddyfile：已有文件（含软链）重装时原样保留，不产生备份。
+  - /etc/frankenphp/Caddyfile：仅首次安装按模板覆盖，之后重装保留，不产生备份。
   - /etc/frankenphp/Caddyfile.d/default.caddyfile：已有文件同样保留，也不产生备份。
   - /usr/local/bin/dfm-common.sh：安装与同步时直接覆盖。
   - /etc/apt/keyrings/static-php<code>.asc：安装时直接重建。

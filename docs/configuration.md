@@ -62,11 +62,12 @@ MYSQL_DATA_DIR 只在安装阶段生效：仅当源码 dfm.conf 中该值不是 
 
 ## Caddyfile 配置行为
 
-  主配置         只有 /etc/frankenphp/Caddyfile 不存在时才按 conf/Caddyfile 渲染；
-                 已有文件（含软链）重装时一律保留，不再做任何内容比较。
-                 全局调优（num_threads、php_ini 等）和 ACME email 都需要自行维护，
-                 重装不会把源码模板或新的 ACME_EMAIL 写回已有文件。
-                 首次生成的全局块包含 frankenphp、可选 email 与固定证书存储路径，
+  主配置         仅在首次安装时按 conf/Caddyfile 覆盖 /etc/frankenphp/Caddyfile，
+                 并创建标记 /etc/dfm/caddyfile.installed。之后重装一律保留已有主配置，
+                 不更新模板也不更新 ACME_EMAIL，你在文件里的修改不会被覆盖。
+                 标记存在但主配置缺失时会重新生成。要恢复模板，
+                 删除主配置和标记后再安装；只删标记、保留主配置则同样会按模板覆盖。
+                 全局块包含 frankenphp、可选 email 与固定证书存储路径，
                  并附带注释掉的线程、并发、php_ini 与 worker 调优示例，按需取消注释即可。
   调优示例       conf/Caddyfile 的 frankenphp 块内注释了 num_threads、max_threads、
                  max_wait_time、max_idle_time、max_requests、php_ini 与 worker。
@@ -74,8 +75,8 @@ MYSQL_DATA_DIR 只在安装阶段生效：仅当源码 dfm.conf 中该值不是 
                  示例仅供参考，需按内存与业务调整后再启用。
   ACME 测试      模板 conf/Caddyfile 注释了 acme_ca 行，指向 Let's Encrypt staging：
                  https://letsencrypt.org/docs/staging-environment/
-                 模板只在首次生成主配置时生效；已有 /etc/frankenphp/Caddyfile
-                 需直接编辑该文件的全局块。开发调试时取消注释 acme_ca 行；
+                 每次安装都会用该模板覆盖 /etc/frankenphp/Caddyfile，
+                 需调整全局块时请改源码模板后重新安装。开发调试时取消注释 acme_ca 行；
                  staging 证书不被浏览器信任、
                  ACME 账户独立、限流宽松（同组域名每周 30000 张）。
                  正式签发前必须重新注释，否则拿到的是不受信任的证书。

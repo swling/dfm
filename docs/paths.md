@@ -40,7 +40,7 @@
 ├── etc/                                  # 系统配置文件
 │   │
 │   ├── frankenphp/                       # FrankenPHP 与 Caddy 配置目录
-│   │   ├── Caddyfile                     # [包] [DFM] 主配置（缺失时由模板生成）
+│   │   ├── Caddyfile                     # [包] [DFM] 主配置（仅首次安装按模板覆盖）
 │   │   ├── Caddyfile.d/                  # [DFM] 站点目录，由主配置 import
 │   │   │   ├── default.caddyfile         # [DFM] HTTP 默认站点，也可手工写入域名站点块
 │   │   │   ├── example.com.caddyfile     # [DFM] 域名站点（默认自动 HTTPS，可选仅 HTTP）

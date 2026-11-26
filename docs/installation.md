@@ -75,7 +75,7 @@
 ## 与 LNMP 版本的行为差异
 
   - 站点文件写在 /etc/frankenphp/Caddyfile.d/，dfm 新建时按主域名命名，可手工把多个域名写进同一文件；list / del 按文件名管理，cert 只做全局 reload 并列出证书，不使用 sites-enabled。
-  - 重装时 /etc/frankenphp/Caddyfile 一律保留，只有文件不存在时才按 conf/Caddyfile 生成。
+  - 仅首次安装按 conf/Caddyfile 生成主配置；之后重装一律保留已有主配置。
   - 重装时 default.caddyfile 一律保留，只有文件不存在时才按 conf/default-site.caddyfile 生成。
   - 默认站点只监听 HTTP；域名站点默认启用 HTTPS 与 HTTP 到 HTTPS 跳转，
     添加站点时选择仅 HTTP 或运行 dfm vhost add-http 时只监听 80 端口。

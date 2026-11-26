@@ -1,4 +1,4 @@
-# Managed by DFM. Generated from conf/Caddyfile by install.sh on a fresh install.
+# Managed by DFM. Generated from conf/Caddyfile by install.sh on first install only.
 # Site blocks live in /etc/frankenphp/Caddyfile.d/*.caddyfile and are imported below.
 #
 # 开发/测试提示：Let's Encrypt 生产环境有严格限流（同一组域名每周 5 张证书）。

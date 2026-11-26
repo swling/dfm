@@ -571,7 +571,9 @@ EOF
     chmod 0644 "$FRANKENPHP_DROPIN"
 
     caddyfile="${FRANKENPHP_CONFIG_DIR}/Caddyfile"
-    if [[ -e "$caddyfile" || -L "$caddyfile" ]]; then
+    caddyfile_installed="${STATE_DIR}/caddyfile.installed"
+    if [[ -e "$caddyfile_installed" &&
+          ( -e "$caddyfile" || -L "$caddyfile" ) ]]; then
         info "Keeping existing Caddyfile: ${caddyfile}"
     else
         email_line=
@@ -582,6 +584,8 @@ EOF
         sed "s#@EMAIL_LINE@#${email_line}#" "$SCRIPT_DIR/conf/Caddyfile" > "$caddyfile_tmp"
         chmod 0644 "$caddyfile_tmp"
         mv "$caddyfile_tmp" "$caddyfile"
+        install -d -m 0755 "$STATE_DIR"
+        : > "$caddyfile_installed"
     fi
 
     default_site="${FRANKENPHP_SITE_DIR}/default.caddyfile"
