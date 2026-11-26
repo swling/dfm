@@ -27,7 +27,7 @@ usage() {
     cat <<'EOF'
 Usage:
   dfm {start|stop|restart|reload|kill|status}
-  dfm {frankenphp|mysql|mariadb} {start|stop|restart|reload|kill|status}
+  dfm {frankenphp|fp|mysql|db|mariadb} {start|stop|restart|reload|kill|status}
   dfm vhost {add|add-http|list|del [domain]|cert}
   dfm addons {install|uninstall} <addon>
 
@@ -525,18 +525,19 @@ case "${1:-}" in
         service_action status frankenphp
         service_action status mysql
         ;;
-    frankenphp|mysql|mariadb)
+    fp|frankenphp|db|mysql|mariadb)
         [[ $# -eq 2 ]] || { usage >&2; exit 2; }
         require_root
         case "$2" in
             start|stop|restart|reload|kill|status) ;;
             *) usage >&2; exit 2 ;;
         esac
-        if [[ "$1" == mariadb ]]; then
-            service_action "$2" mysql
-        else
-            service_action "$2" "$1"
-        fi
+        case "$1" in
+            fp) service=frankenphp ;;
+            db|mariadb) service=mysql ;;
+            *) service=$1 ;;
+        esac
+        service_action "$2" "$service"
         ;;
     vhost)
         case "${2:-}" in

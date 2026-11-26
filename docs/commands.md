@@ -3,12 +3,12 @@
 安装后使用 dfm（/usr/local/bin/dfm，/usr/bin/dfm 为软链）：
 
     dfm {start|stop|restart|reload|kill|status}
-    dfm {frankenphp|mysql|mariadb} {start|stop|restart|reload|kill|status}
+    dfm {frankenphp|fp|mysql|db|mariadb} {start|stop|restart|reload|kill|status}
     dfm vhost {add|add-http|list|del [domain]|cert}
     dfm addons {install|uninstall} <addon>
 
 证书由 Caddy 自动管理；`dfm vhost cert` 只 reload 并列出已签发证书，不改写站点配置。
-mariadb 作为 mysql 的别名保留，便于沿用旧命令习惯。
+fp 是 frankenphp 的别名，db 是 mysql 的别名；mariadb 也作为 mysql 的别名保留。
 
 ## 服务操作
 
