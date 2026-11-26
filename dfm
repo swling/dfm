@@ -14,7 +14,6 @@ elif [[ -r "${SCRIPT_DIR}/dfm.conf" ]]; then
 fi
 
 SITE_DIR="${FRANKENPHP_CONFIG_DIR}/Caddyfile.d"
-REWRITE_DIR="${FRANKENPHP_CONFIG_DIR}/rewrite"
 CADDYFILE="${FRANKENPHP_CONFIG_DIR}/Caddyfile"
 WEB_ROOT="${WEB_ROOT:-/home/wwwroot}"
 DEFAULT_WEB_ROOT="${DEFAULT_WEB_ROOT:-${WEB_ROOT}/default}"
@@ -155,7 +154,7 @@ service_bundle() {
 }
 
 create_vhost_config() {
-    local domain=$1 names=$2 webroot=$3 rewrite=$4 log_block=$5 scheme=$6
+    local domain=$1 names=$2 webroot=$3 log_block=$4 scheme=$5
     local config="${SITE_DIR}/${domain}.caddyfile" addresses name prefix cert_log_since
     local -A seen=()
 
@@ -164,9 +163,6 @@ create_vhost_config() {
     [[ "$scheme" == https || "$scheme" == http ]] || fail "Invalid scheme: $scheme"
     [[ "$webroot" == /* && "$webroot" =~ ^/[A-Za-z0-9_./-]+$ ]] ||
         fail "Web root must be an absolute path using only letters, digits, dot, underscore, slash, or hyphen."
-    [[ "$rewrite" =~ ^[A-Za-z0-9_-]+$ ]] || fail "Invalid rewrite profile name."
-    [[ -e "${REWRITE_DIR}/${rewrite}.caddyfile" || -L "${REWRITE_DIR}/${rewrite}.caddyfile" ]] ||
-        fail "Rewrite profile does not exist: ${rewrite}"
 
     for name in $names; do
         valid_domain "$name" || fail "Invalid domain name in site addresses: $name"
@@ -207,7 +203,6 @@ ${addresses} {
     }
 
     handle {
-        import ${REWRITE_DIR}/${rewrite}.caddyfile
         php_server
     }
 ${log_block}
@@ -228,9 +223,9 @@ EOF
 
 add_vhost() {
     local forced_scheme=${1:-} scheme https_choice
-    local domain more_names webroot rewrite allow_rewrite
+    local domain more_names webroot
     local access_choice log_file log_block name
-    local -a additional_names rewrite_profiles
+    local -a additional_names
     [[ -z "$forced_scheme" || "$forced_scheme" == https || "$forced_scheme" == http ]] ||
         fail "Invalid scheme: $forced_scheme"
     require_root
@@ -248,22 +243,6 @@ add_vhost() {
 
     read -r -p "Web root [${WEB_ROOT}/${domain}]: " webroot
     webroot="${webroot:-${WEB_ROOT}/${domain}}"
-
-    read -r -p "Enable pseudo-static rewrite rules? [y/N]: " allow_rewrite
-    if [[ "$allow_rewrite" =~ ^[Yy]$ ]]; then
-        mapfile -t rewrite_profiles < <(
-            find "$REWRITE_DIR" -maxdepth 1 -type f -name '*.caddyfile' -print |
-                sed 's#^.*/##; s/\.caddyfile$//' | sort
-        )
-        printf 'Available rewrite profiles:\n'
-        printf '  %s\n' "${rewrite_profiles[@]}"
-        read -r -p "Rewrite profile [other]: " rewrite
-        rewrite="${rewrite:-other}"
-    else
-        rewrite=none
-    fi
-    [[ "$rewrite" =~ ^[A-Za-z0-9_-]+$ ]] || fail "Invalid rewrite profile name."
-    printf 'Using rewrite profile: %s\n' "$rewrite"
 
     if [[ -n "$forced_scheme" ]]; then
         scheme="$forced_scheme"
@@ -287,7 +266,7 @@ add_vhost() {
     }"
     fi
 
-    create_vhost_config "$domain" "$domain $more_names" "$webroot" "$rewrite" "$log_block" "$scheme"
+    create_vhost_config "$domain" "$domain $more_names" "$webroot" "$log_block" "$scheme"
 }
 
 list_vhosts() {

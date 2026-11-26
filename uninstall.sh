@@ -11,7 +11,6 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 SYSTEM_CONFIG=/etc/dfm.conf
 FRANKENPHP_DIR="${FRANKENPHP_CONFIG_DIR}"
 SITE_DIR="${FRANKENPHP_DIR}/Caddyfile.d"
-REWRITE_DIR="${FRANKENPHP_DIR}/rewrite"
 FRANKENPHP_DROPIN_DIR=/etc/systemd/system/frankenphp.service.d
 CADDY_DATA=/var/lib/frankenphp/caddy
 MYSQL_DFM_CNF=/etc/mysql/mysql.conf.d/zz-dfm.cnf
@@ -192,7 +191,7 @@ plan_mysql() {
 plan_frankenphp() {
     REMOVE_ITEMS+=(
         "systemd 覆盖配置: ${FRANKENPHP_DROPIN_DIR}/10-dfm.conf"
-        "内置伪静态规则（自定义规则保留）、cache-static.caddyfile"
+        "cache-static.caddyfile"
         "APT 仓库与密钥: /etc/apt/sources.list.d/static-php*.list、/etc/apt/keyrings/static-php*.asc（源文件有 .dfm.orig 时还原原内容）"
         "状态文件: ${STATE_DIR}/php-version、${STATE_DIR}/frankenphp-version"
     )
@@ -337,7 +336,7 @@ remove_frankenphp_repository() {
 }
 
 run_frankenphp() {
-    local tpl leftover dropin
+    local dropin
 
     step "卸载 FrankenPHP"
     systemctl stop frankenphp >/dev/null 2>&1 || true
@@ -349,16 +348,6 @@ run_frankenphp() {
         rmdir -- "$FRANKENPHP_DROPIN_DIR" 2>/dev/null || true
     fi
 
-    for tpl in none other wordpress laravel joomla drupal; do
-        [[ -e "${REWRITE_DIR}/${tpl}.caddyfile" || -L "${REWRITE_DIR}/${tpl}.caddyfile" ]] && {
-            rm -f -- "${REWRITE_DIR}/${tpl}.caddyfile"
-            info "已删除内置规则: ${tpl}.caddyfile"
-        }
-    done
-    if [[ -d "$REWRITE_DIR" ]]; then
-        leftover="$(find "$REWRITE_DIR" -mindepth 1 -maxdepth 1 -print -quit 2>/dev/null)"
-        [[ -z "$leftover" ]] || warn "${REWRITE_DIR} 中仍有自定义规则，已保留整个目录。"
-    fi
     remove_files "${FRANKENPHP_DIR}/cache-static.caddyfile"
 
     step "删除状态文件与 FrankenPHP APT 仓库"

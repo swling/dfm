@@ -28,7 +28,7 @@
 
   FrankenPHP
     /etc/systemd/system/frankenphp.service.d/10-dfm.conf
-    内置伪静态片段与 cache-static.caddyfile
+    cache-static.caddyfile
     DFM 管理的 /etc/apt/sources.list.d/static-php*.list 与对应密钥
     static-php 源文件的 *.dfm.orig 备份（还原后删除）
     /etc/dfm/php-version、/etc/dfm/frankenphp-version
@@ -49,7 +49,6 @@
   - /var/lib/frankenphp/caddy 中的 Caddy 自动证书数据。
   - /var/log/frankenphp/ 中的访问日志。
   - 通过 dfm addons 安装的 memcached、redis-server 等独立服务包。
-  - 自定义伪静态片段保留。
 
 ## 执行流程
 

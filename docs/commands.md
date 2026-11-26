@@ -32,9 +32,8 @@ fp 是 frankenphp 的别名，db 是 mysql 的别名；mariadb 也作为 mysql �
   1. 主域名（通配符域名需自行配置 DNS 挑战，向导不接受）。
   2. 附加域名，多个名称用空格分隔，写入同一个站点地址行。
   3. 网站根目录，默认 WEB_ROOT/<域名>；不存在时创建并设为 www:www、0775。
-  4. 是否启用伪静态，以及使用哪个 rewrite 片段。
-  5. 是否启用 HTTPS 并自动申请证书？[Y/n]：回车或 Y 为 HTTPS，n 为仅 HTTP。
-  6. 是否开启访问日志；开启时写入 /var/log/frankenphp/<域名>.log。
+  4. 是否启用 HTTPS 并自动申请证书？[Y/n]：回车或 Y 为 HTTPS，n 为仅 HTTP。
+  5. 是否开启访问日志；开启时写入 /var/log/frankenphp/<域名>.log。
 
 生成的站点配置类似：
 
@@ -51,7 +50,6 @@ fp 是 frankenphp 的别名，db 是 mysql 的别名；mariadb 也作为 mysql �
         }
 
         handle {
-            import /etc/frankenphp/rewrite/wordpress.caddyfile
             php_server
         }
 
@@ -129,17 +127,15 @@ del 可直接带域名，也可交互输入；按 <域名>.caddyfile 删除整�
 删除时先把文件移到临时副本，先 validate 再 reload，校验失败会还原。
 网站文件、证书和日志均不删除。
 
-## 伪静态片段
+## 自定义路由规则
 
-  none       空规则；php_server 仍会提供静态文件与 index.php 回退。
-  other      自定义占位文件，可自行填写 Caddyfile 指令。
-  wordpress  front-controller 回退由 php_server 提供，片段保留 /wp-admin 尾斜杠重定向。
-  laravel    php_server 的 try_files + PATH_INFO 已等价于常见入口回退。
-  joomla     同上，无需额外规则。
-  drupal     PATH_INFO 适配现代 Drupal；Drupal 7 的 ?q= 需自行补充。
+  php_server 已内置 try_files 与 PATH_INFO 处理：请求的文件存在时直接输出，
+  不存在时回退到 index.php，并把剩余路径作为 PATH_INFO 传入。
+  WordPress、Joomla、Laravel、Drupal 等前控制器式应用不需要额外规则。
 
-片段由站点块在 php_server 之前 import，可使用 matcher 与 redir 等指令。
-修改片段后需要 dfm reload 才会生效。
+需要 matcher、redir、respond 等自定义指令时，直接编辑
+Caddyfile.d/<域名>.caddyfile，在 handle 块内的 php_server 前后添加，
+改完用 dfm reload 生效。
 
 ## 扩展管理
 

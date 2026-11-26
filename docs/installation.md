@@ -55,7 +55,7 @@
   4. 安装 frankenphp、php-zts 基础扩展与指定版本的 mysql-server。
   5. 迁移 MySQL 数据目录（若使用自定义目录），处理 AppArmor 规则与软链。
   6. 创建 www 用户/组，并把 frankenphp 服务用户加入 www 组。
-  7. 创建 /etc/frankenphp 布局，渲染 Caddyfile 与默认站点，部署伪静态片段。
+  7. 创建 /etc/frankenphp 布局，渲染 Caddyfile 与默认站点。
   8. 写入 systemd 覆盖配置，安装 dfm 命令与共享函数库（addons 已内置）。
   9. 校验 Caddyfile，启动并重启 frankenphp，检查 frankenphp 与 mysql 状态。
 
@@ -79,7 +79,7 @@
   - 重装时 default.caddyfile 一律保留，只有文件不存在时才按 conf/default-site.caddyfile 生成。
   - 默认站点只监听 HTTP；域名站点默认启用 HTTPS 与 HTTP 到 HTTPS 跳转，
     添加站点时选择仅 HTTP 或运行 dfm vhost add-http 时只监听 80 端口。
-  - 伪静态片段是 Caddyfile 语法，php_server 已内置 try_files 与 PATH_INFO 处理。
+  - php_server 已内置 try_files 与 PATH_INFO 处理，常见 PHP 程序无需额外路由规则。
   - 不需要为证书开放单独的 .well-known 目录，Caddy 自己处理 ACME 校验请求。
   - 隐藏文件访问由站点块中的 @dotfiles 匹配器返回 404。
   - access log 默认不生成；在 dfm vhost add 中选择开启后写入 /var/log/frankenphp/。

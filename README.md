@@ -22,7 +22,6 @@ MySQL 的安装、数据目录迁移和选版逻辑保持不变。
   upgrade.sh        按 frankenphp / php / mysql 手动升级
   sync-dfm.sh       把 dfm 同步到系统命令路径
   conf/             Caddyfile、默认站点、静态缓存片段模板
-  rewrite/          常见程序的 Caddyfile 伪静态片段
   docs/             安装、配置、命令、路径、卸载、升级与备份文档
 
 ## 从零开始的完整流程
@@ -82,10 +81,10 @@ MySQL 的安装、数据目录迁移和选版逻辑保持不变。
 
   FrankenPHP 与 Caddy 配置
 
-  - /etc/frankenphp、Caddyfile.d、rewrite 目录按 0755 创建。
+  - /etc/frankenphp 与 Caddyfile.d 目录按 0755 创建。
   - /etc/frankenphp/Caddyfile：仅首次安装按 conf/Caddyfile 生成并写入 ACME_EMAIL，同时创建标记 /etc/dfm/caddyfile.installed；之后重装一律保留。
   - /etc/frankenphp/Caddyfile.d/default.caddyfile：缺失时按 conf/default-site.caddyfile 生成 HTTP 默认站点。
-  - /etc/frankenphp/cache-static.caddyfile 与 rewrite 下的内置片段：缺失时按模板复制，并保证 none.caddyfile、other.caddyfile 为空文件存在。
+  - /etc/frankenphp/cache-static.caddyfile：缺失时按模板复制。
   - 主配置通过 import Caddyfile.d/*.caddyfile 加载站点块。
 
   DFM 自身文件

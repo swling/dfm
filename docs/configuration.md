@@ -129,7 +129,6 @@ MYSQL_DATA_DIR 只在安装阶段生效：仅当源码 dfm.conf 中该值不是 
   默认站点            /etc/frankenphp/Caddyfile.d/default.caddyfile
   站点配置            /etc/frankenphp/Caddyfile.d/*.caddyfile（dfm 新建时以主域名命名，可手工合并多域名）
   静态缓存片段        /etc/frankenphp/cache-static.caddyfile
-  伪静态片段          /etc/frankenphp/rewrite/<名称>.caddyfile
   PHP 配置            /etc/php-zts/php.ini、/etc/php-zts/conf.d/
   Caddy 证书数据      /var/lib/frankenphp/caddy
   MySQL 配置          /etc/mysql/（自定义数据目录时写入 zz-dfm.cnf）

@@ -20,7 +20,6 @@
   默认站点          /etc/frankenphp/Caddyfile.d/default.caddyfile
   站点配置          /etc/frankenphp/Caddyfile.d/*.caddyfile
   静态缓存片段      /etc/frankenphp/cache-static.caddyfile
-  伪静态片段        /etc/frankenphp/rewrite/<名称>.caddyfile
   PHP 配置          /etc/php-zts/php.ini
   PHP 扩展 ini      /etc/php-zts/conf.d/*.ini
   Caddy 证书数据    /var/lib/frankenphp/caddy
@@ -46,16 +45,7 @@
 │   │   │   ├── example.com.caddyfile     # [DFM] 域名站点（默认自动 HTTPS，可选仅 HTTP）
 │   │   │   └── <name>.caddyfile          # [DFM] 站点文件，可包含多个域名/多个站点块
 │   │   │
-│   │   ├── cache-static.caddyfile        # [DFM] 静态资源缓存头片段
-│   │   │
-│   │   └── rewrite/                      # [DFM] 伪静态片段
-│   │       ├── none.caddyfile            # 空规则
-│   │       ├── other.caddyfile           # 自定义占位
-│   │       ├── wordpress.caddyfile       # WordPress
-│   │       ├── laravel.caddyfile         # Laravel
-│   │       ├── joomla.caddyfile          # Joomla
-│   │       ├── drupal.caddyfile          # Drupal
-│   │       └── <name>.caddyfile          # 自定义规则
+│   │   └── cache-static.caddyfile        # [DFM] 静态资源缓存头片段
 │   │
 │   ├── php-zts/                          # [包] FrankenPHP 使用的 ZTS PHP
 │   │   ├── php.ini                       # 生产预设

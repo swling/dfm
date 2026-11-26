@@ -1,3 +1,0 @@
-# DFM rewrite profile: other (custom placeholder).
-# Add your own Caddy directives here. This file is imported inside the
-# site block, before php_server, so matchers and redirs can be defined here.

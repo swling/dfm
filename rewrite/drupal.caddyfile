@@ -1,4 +1,0 @@
-# DFM rewrite profile: Drupal.
-# php_server's try_files + split_path .php passes the remaining path as
-# PATH_INFO to index.php, which is what modern Drupal clean URLs use.
-# Drupal 7 installations that require ?q= need a custom rewrite here.

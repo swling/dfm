@@ -22,7 +22,6 @@ PHP_VERSION="${PHP_VERSION:-}"
 MYSQL_VERSION="${MYSQL_VERSION:-}"
 ACME_EMAIL="${ACME_EMAIL:-}"
 FRANKENPHP_SITE_DIR="${FRANKENPHP_CONFIG_DIR}/Caddyfile.d"
-FRANKENPHP_REWRITE_DIR="${FRANKENPHP_CONFIG_DIR}/rewrite"
 FRANKENPHP_CACHE_CONF="${FRANKENPHP_CONFIG_DIR}/cache-static.caddyfile"
 FRANKENPHP_CADDY_DATA=/var/lib/frankenphp/caddy
 FRANKENPHP_DROPIN=/etc/systemd/system/frankenphp.service.d/10-dfm.conf
@@ -550,10 +549,8 @@ prepare_web_layout() {
 
 configure_frankenphp() {
     local caddyfile caddyfile_tmp default_site default_site_tmp email_line
-    local rewrite_template rewrite_name rewrite_file
 
-    install -d -m 0755 "$FRANKENPHP_CONFIG_DIR" "$FRANKENPHP_SITE_DIR" \
-        "$FRANKENPHP_REWRITE_DIR"
+    install -d -m 0755 "$FRANKENPHP_CONFIG_DIR" "$FRANKENPHP_SITE_DIR"
     install -d -o frankenphp -g frankenphp -m 0750 "$FRANKENPHP_CADDY_DATA"
     if [[ -d "$FRANKENPHP_LOG_DIR" ]]; then
         chown frankenphp:frankenphp "$FRANKENPHP_LOG_DIR"
@@ -602,23 +599,6 @@ EOF
     if [[ ! -e "$FRANKENPHP_CACHE_CONF" && ! -L "$FRANKENPHP_CACHE_CONF" ]]; then
         install -m 0644 "$SCRIPT_DIR/conf/cache-static.caddyfile" "$FRANKENPHP_CACHE_CONF"
     fi
-
-    [[ -d "$SCRIPT_DIR/rewrite" ]] ||
-        fail "Bundled Caddyfile rewrite templates are missing: ${SCRIPT_DIR}/rewrite"
-    for rewrite_template in "$SCRIPT_DIR"/rewrite/*.caddyfile; do
-        [[ -f "$rewrite_template" ]] || continue
-        rewrite_name="${rewrite_template##*/}"
-        if [[ ! -e "${FRANKENPHP_REWRITE_DIR}/${rewrite_name}" &&
-              ! -L "${FRANKENPHP_REWRITE_DIR}/${rewrite_name}" ]]; then
-            install -m 0644 "$rewrite_template" "${FRANKENPHP_REWRITE_DIR}/${rewrite_name}"
-        fi
-    done
-    for rewrite_file in none other; do
-        if [[ ! -e "${FRANKENPHP_REWRITE_DIR}/${rewrite_file}.caddyfile" &&
-              ! -L "${FRANKENPHP_REWRITE_DIR}/${rewrite_file}.caddyfile" ]]; then
-            : > "${FRANKENPHP_REWRITE_DIR}/${rewrite_file}.caddyfile"
-        fi
-    done
 }
 
 install_management_commands() {
