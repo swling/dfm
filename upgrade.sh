@@ -367,6 +367,10 @@ upgrade_mysql() {
     systemctl is-active --quiet mysql || fail "MySQL must be active before upgrading."
 
     confirm_risk "MySQL"
+    # The upstream signing key has a limited lifetime. Refresh it before apt
+    # reads the repository so an expired key cannot break the update again.
+    install_mysql_keyring
+    printf 'Oracle MySQL signing key refreshed (fingerprint %s).\n' "$MYSQL_GPG_FINGERPRINT"
     apt-get update
     version="$(resolve_package_version mysql-server "$requested" "$MYSQL_MIN_MAJOR_VERSION" repo.mysql.com)"
 

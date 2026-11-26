@@ -233,7 +233,6 @@ write_mysql_source() {
 }
 
 install_mysql_repository() {
-    local key_tmp key_fingerprint
     MYSQL_CODENAME="$(. /etc/os-release && printf '%s' "${VERSION_CODENAME:-}")"
     MYSQL_ARCHITECTURE="$(dpkg --print-architecture)"
     [[ " $MYSQL_ARCHITECTURES " == *" $MYSQL_ARCHITECTURE "* ]] ||
@@ -243,22 +242,9 @@ install_mysql_repository() {
     # Keep every server component enabled during discovery so the version menu
     # can offer all MySQL series the repository currently publishes.
     MYSQL_COMPONENTS="$(discover_mysql_components)"
-
-    install -d -m 0755 /usr/share/keyrings
-    key_tmp="$(mktemp)"
-    trap 'rm -f "$key_tmp"' RETURN
-    curl --fail --silent --show-error --location \
-        "$MYSQL_GPG_KEY_URL" -o "$key_tmp"
-    key_fingerprint="$(gpg --show-keys --with-colons "$key_tmp" |
-        awk -F: '$1 == "fpr" { print $10; exit }')"
-    [[ "$key_fingerprint" == "$MYSQL_GPG_FINGERPRINT" ]] ||
-        fail "Unexpected Oracle MySQL repository signing key fingerprint: ${key_fingerprint:-unreadable} (expected ${MYSQL_GPG_FINGERPRINT})"
-    gpg --dearmor --yes --output "$MYSQL_KEYRING" "$key_tmp"
-    chmod 0644 "$MYSQL_KEYRING"
+    install_mysql_keyring
     write_mysql_source "$MYSQL_COMPONENTS"
     printf 'Discovered MySQL components: %s\n' "$MYSQL_COMPONENTS"
-    rm -f "$key_tmp"
-    trap - RETURN
 }
 
 finalize_mysql_repository() {

@@ -32,6 +32,7 @@ PHP_BRANCH_CANDIDATES 列出的分支号。
               这是跨分支升级，属于高风险操作。
 
   mysql       从 install.sh 配置的 Oracle APT 仓库升级 mysql-server。
+              升级前重新下载并校验签名密钥，避免密钥到期导致 apt 失败；
               数据目录不受影响，配置变更使用 `--force-confold`
               保留现有配置文件。
 
@@ -62,6 +63,7 @@ FrankenPHP 与 php-zts-* 来自同一个仓库，必须一起升级，不能只�
 脚本对每个组件都先确认风险、打印 APT 演练计划，再执行安装。
 
   - 检查 root 权限、dfm.conf 中 MIN_DEBIAN_MAJOR 指定的最低版本及以上、组件已安装且服务处于 active 状态。
+  - MySQL 升级前重新下载签名密钥并核对指纹，通过后再 apt-get update；指纹不符立即报错。
   - 解析版本：从 apt-cache madison 中只取目标仓库的候选版本，并要求严格高于当前版本。
   - 打印 apt-get -s install 的结果，确认后再执行安装。
   - 安装后校验 Caddyfile（FrankenPHP / PHP）或重启服务（MySQL），确认服务 active。

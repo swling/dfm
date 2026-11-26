@@ -57,8 +57,8 @@ MYSQL_DATA_DIR 只在安装阶段生效：仅当源码 dfm.conf 中该值不是 
   MIN_DEBIAN_MAJOR      允许安装的最低 Debian 主版本号。
   MYSQL_ARCHITECTURES   MySQL 仓库支持的 CPU 架构，空格分隔。
   FRANKENPHP_ARCHITECTURES  FrankenPHP 仓库支持的 CPU 架构，空格分隔。
-  MYSQL_GPG_KEY_URL     Oracle MySQL 仓库签名密钥的下载地址。
-  MYSQL_GPG_FINGERPRINT 预期的 MySQL 密钥指纹；不匹配即报错退出。
+  MYSQL_GPG_KEY_URL     Oracle MySQL 仓库签名密钥的下载地址；安装与每次 mysql 升级都会重新下载。
+  MYSQL_GPG_FINGERPRINT 预期的 MySQL 密钥指纹；不匹配即报错退出。Oracle 续期时不换指纹，只改有效期。
   FRANKENPHP_ADMIN_URL  Caddy admin 端点；单实例清理时用它探测与关闭遗留实例。
   FRANKENPHP_STOP_POLL_ATTEMPTS  关闭遗留实例后的轮询次数。
   FRANKENPHP_STOP_POLL_INTERVAL  每轮轮询的间隔秒数。

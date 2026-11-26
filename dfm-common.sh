@@ -44,6 +44,44 @@ frankenphp_keyring_path() {
     printf '/etc/apt/keyrings/static-php%s.asc' "${1//./}"
 }
 
+# Download the Oracle MySQL signing key, verify its fingerprint and install it
+# as a dearmored keyring. Used by install.sh and by the MySQL upgrade path so
+# an expiring key can be refreshed without changing the trusted fingerprint.
+install_mysql_keyring() {
+    local key_tmp keyring_tmp key_fingerprint
+
+    command -v curl >/dev/null || fail "curl is required to fetch the MySQL signing key."
+    command -v gpg >/dev/null || fail "gpg is required to install the MySQL signing key."
+
+    install -d -m 0755 "$(dirname "$MYSQL_KEYRING")"
+    key_tmp="$(mktemp)"
+    keyring_tmp="$(mktemp "${MYSQL_KEYRING}.XXXXXX")"
+    trap 'rm -f "$key_tmp" "$keyring_tmp"' RETURN
+
+    curl --fail --silent --show-error --location \
+        "$MYSQL_GPG_KEY_URL" -o "$key_tmp" || {
+        rm -f "$key_tmp" "$keyring_tmp"
+        fail "Could not download the MySQL signing key from ${MYSQL_GPG_KEY_URL}."
+    }
+
+    key_fingerprint="$(gpg --show-keys --with-colons "$key_tmp" |
+        awk -F: '$1 == "fpr" { print $10; exit }')"
+    [[ "$key_fingerprint" == "$MYSQL_GPG_FINGERPRINT" ]] || {
+        rm -f "$key_tmp" "$keyring_tmp"
+        fail "Unexpected Oracle MySQL repository signing key fingerprint: ${key_fingerprint:-unreadable} (expected ${MYSQL_GPG_FINGERPRINT})."
+    }
+
+    gpg --dearmor --yes --output "$keyring_tmp" "$key_tmp" || {
+        rm -f "$key_tmp" "$keyring_tmp"
+        fail "Could not convert the MySQL signing key to keyring format."
+    }
+    chmod 0644 "$keyring_tmp"
+    mv -f "$keyring_tmp" "$MYSQL_KEYRING"
+
+    rm -f "$key_tmp" "$keyring_tmp"
+    trap - RETURN
+}
+
 detect_php_branches() {
     local branch code
     PHP_BRANCHES=()

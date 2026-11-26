@@ -56,7 +56,7 @@ MySQL 的安装、数据目录迁移和选版逻辑保持不变。
   APT 源与密钥
 
   - /etc/apt/sources.list.d/mysql.list：写入 Oracle MySQL 源，组件按所选版本固定，签名密钥指向 /usr/share/keyrings/mysql-apt.gpg；已有非 Oracle 源会先备份为 mysql.list.dfm.orig 再覆盖。
-  - /usr/share/keyrings/mysql-apt.gpg：下载 Oracle MySQL 2025 公钥，校验指纹 BCA43417C3B485DD128EC6D4B7B3B788A8D3785C 后 dearmor 写入。
+  - /usr/share/keyrings/mysql-apt.gpg：下载 Oracle MySQL 2025 公钥，校验指纹 BCA43417C3B485DD128EC6D4B7B3B788A8D3785C 后 dearmor 写入。upgrade.sh mysql 每次升级前也会重新下载并校验后覆盖，以应对密钥到期；指纹不符则终止升级。
   - /etc/apt/sources.list.d/static-php<code>.list：写入 FrankenPHP 仓库的 php-zts 源；已有非 DFM 源备份为 .dfm.orig。切换 PHP 分支时删除旧分支与其他残留的 DFM 源及对应密钥。
   - /etc/apt/keyrings/static-php<code>.asc：写入 FrankenPHP 仓库签名密钥。
   - 多次运行 apt-get update；安装 ca-certificates、curl、gnupg，以及 frankenphp、php-zts-*（cli/curl/gd/intl/zip/pdo-mysql/mysqli/bcmath/fileinfo）与指定版本的 mysql-server。
