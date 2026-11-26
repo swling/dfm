@@ -5,26 +5,20 @@
 目标已存在时不覆盖，所以重复安装不会改写首次快照。安装器不读取、不回滚、
 也不自动删除这些备份。
 
-## 已有配置文件
+## APT 源文件
 
   - /etc/apt/sources.list.d/static-php<code>.list.dfm.orig
     源文件存在且不含 `# Managed by DFM` 标记时产生。安装器用当前 PHP 分支
     对应的 FrankenPHP deb 源覆盖原文件。<code> 是仓库使用的分支代码。
 
-  - /etc/frankenphp/Caddyfile.dfm.orig
-    Caddyfile 是普通文件、不含 `# Managed by DFM` 标记且备份不存在时产生。
-    安装器会重新生成全局块与站点 import。
-
-## 管理命令文件
-
-  - /usr/local/bin/dfm.dfm.orig
-  - /usr/bin/dfm.dfm.orig
-    对应路径是普通文件（非软链）、备份不存在且内容与本目录的 dfm 不同时
-    产生。若已经是正确软链，安装器直接重建，不产生备份。安装后
-    /usr/local/bin/dfm 是脚本实体，/usr/bin/dfm 指向它。
+  - /etc/apt/sources.list.d/mysql.list.dfm.orig
+    mysql.list 已存在且不是 Oracle MySQL Debian 源时产生。安装器用
+    repo.mysql.com/apt/debian 对应的源覆盖原文件。
 
 ## 不产生备份
 
-  - addons.sh：不安装到系统路径，只保留在源码目录。
+  - /usr/local/bin/dfm、/usr/bin/dfm：安装时直接覆盖实体并重建软链，不产生备份。
+  - /etc/frankenphp/Caddyfile：已有文件（含软链）重装时原样保留，不产生备份。
+  - /etc/frankenphp/Caddyfile.d/default.caddyfile：已有文件同样保留，也不产生备份。
   - /usr/local/bin/dfm-common.sh：安装与同步时直接覆盖。
   - /etc/apt/keyrings/static-php<code>.asc：安装时直接重建。

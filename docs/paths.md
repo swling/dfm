@@ -18,7 +18,7 @@
   内部状态          /etc/dfm/
   Caddy 主配置      /etc/frankenphp/Caddyfile
   默认站点          /etc/frankenphp/Caddyfile.d/default.caddyfile
-  站点配置          /etc/frankenphp/Caddyfile.d/<域名>.caddyfile
+  站点配置          /etc/frankenphp/Caddyfile.d/*.caddyfile
   静态缓存片段      /etc/frankenphp/cache-static.caddyfile
   伪静态片段        /etc/frankenphp/rewrite/<名称>.caddyfile
   PHP 配置          /etc/php-zts/php.ini
@@ -40,11 +40,11 @@
 ├── etc/                                  # 系统配置文件
 │   │
 │   ├── frankenphp/                       # FrankenPHP 与 Caddy 配置目录
-│   │   ├── Caddyfile                     # [包] [DFM] 主配置（首次安装备份为 .dfm.orig）
+│   │   ├── Caddyfile                     # [包] [DFM] 主配置（缺失时由模板生成）
 │   │   ├── Caddyfile.d/                  # [DFM] 站点目录，由主配置 import
-│   │   │   ├── default.caddyfile         # [DFM] HTTP 默认站点
+│   │   │   ├── default.caddyfile         # [DFM] HTTP 默认站点，也可手工写入域名站点块
 │   │   │   ├── example.com.caddyfile     # [DFM] 域名站点（默认自动 HTTPS，可选仅 HTTP）
-│   │   │   └── <domain>.caddyfile        # [DFM] 其他站点
+│   │   │   └── <name>.caddyfile          # [DFM] 站点文件，可包含多个域名/多个站点块
 │   │   │
 │   │   ├── cache-static.caddyfile        # [DFM] 静态资源缓存头片段
 │   │   │

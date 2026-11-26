@@ -4,12 +4,10 @@
 
     dfm {start|stop|restart|reload|kill|status}
     dfm {frankenphp|mysql|mariadb} {start|stop|restart|reload|kill|status}
-    dfm vhost {add|add-http|list|del|cert <domain>}
-    dfm vhost {add-ssl|enable-https} <domain>
+    dfm vhost {add|add-http|list|del [domain]|cert}
     dfm addons {install|uninstall} <addon>
 
-DFM 没有手工签发证书的 ssl / dnsssl / onlyssl 命令：证书由 Caddy 自动管理。
-把已有 HTTP 站点切到 HTTPS 用 add-ssl（别名 enable-https）。
+证书由 Caddy 自动管理；`dfm vhost cert` 只 reload 并列出已签发证书，不改写站点配置。
 mariadb 作为 mysql 的别名保留，便于沿用旧命令习惯。
 
 ## 服务操作
@@ -27,7 +25,7 @@ mariadb 作为 mysql 的别名保留，便于沿用旧命令习惯。
 
 `dfm vhost add` 默认启用 HTTPS；回答 HTTPS 询问为 n 即创建仅 HTTP 的站点。
 也可直接用 `dfm vhost add-http` 进入 HTTP 模式，跳过该询问，其余步骤相同。
-后期要补证书时不用重建站点，用 `dfm vhost add-ssl <域名>` 切换即可。
+后期要为已有域名申请证书时不用重建站点：手工去掉该地址的 http:// 前缀，再用 `dfm vhost cert` 触发。
 
 依次询问：
 
@@ -75,39 +73,60 @@ mariadb 作为 mysql 的别名保留，便于沿用旧命令习惯。
 写入后会执行 frankenphp validate；验证失败时删除新文件并报错。
 reload 前记录时间点，随后轮询证书存储：默认每 2 秒检查一次，最多 60 秒，
 证书一出现就立即结束，只输出路径与有效期；超时只报“等待期内未签发”，不判定签发失败。
-未签发时才摘出这段时间内 journalctl -u frankenphp 的 TLS/ACME 相关日志
-（含域名、acme、certificate、tls、challenge 等关键词），并给出查看完整日志的命令。
+未签发时才摘出这段时间内 journalctl -u frankenphp 中与 TLS/ACME 相关的行
+（acme、certificate、tls、challenge、letsencrypt、http-01、dns-01 等关键词），
+不按域名过滤，并给出查看完整日志的命令。
 站点文件直接放在 Caddyfile.d/ 下，不使用 sites-available/sites-enabled。
 
-## 后期把 HTTP 站点切到 HTTPS
+## 多域名共用一个站点文件
 
-    dfm vhost add-ssl <域名>
-    dfm vhost enable-https <域名>
+  - dfm 按 <域名>.caddyfile 管理站点：list 列出文件名，del 按域名删除整个文件，add 只检查同名文件是否存在。
+  - 一个文件也可以写多个站点块；多个域名指向同一网站目录时，手工把它们写进同一地址行或同一文件。
+  - dfm 不解析地址行，不按域名拆分或删除配置；手工合并后的文件由你自行维护。
+  - default.caddyfile 不参与 list / del；重装 install.sh 时一律保留，不会恢复成纯 catch-all 模板，DEFAULT_WEB_ROOT 变化也不会写回。
+  - 要让其中某个域名申请证书，手工改该域名的地址前缀；dfm 不会改动同一地址行的其他域名。
 
-用于“先建 HTTP、之后再补 SSL”的场景。命令只改站点地址行：去掉每个地址的
-http:// 前缀，并把 # Scheme: http 改成 # Scheme: https；网站目录、伪静态、
-访问日志与附加域名都保持不变。之后 `dfm vhost cert <域名>` 就能正常等待证书。
+例如把两个域名写进同一个站点块，共用同一套 root 与 php_server：
 
-改动前保留原文件副本，先 frankenphp validate 再 reload；校验失败会还原配置。
-切换成功后按常规流程轮询证书状态，超时只表示等待期内未签发，Caddy 仍会后台重试。
-已经是 HTTPS 的站点会直接提示，不做改动。
+    # Managed by DFM. Site: ceshi.fenbu.net
+    # Scheme: http
+    http://ceshi.fenbu.net, http://sim.yisuan.net {
+        root * /home/wwwroot/wordpress
+        encode zstd br gzip
+        import /etc/frankenphp/cache-static.caddyfile
+        php_server
+    }
 
-## 查看证书状态
+带 http:// 的地址不申请证书；要让某个域名走 HTTPS，手工去掉它的前缀即可，
+dfm 不会替你改写配置，也不会动同一地址行的其他域名。
 
-    dfm vhost cert <域名>
+## 触发证书签发
 
-同样采用轮询：证书存在时显示 issued、文件路径与有效期，并立即返回，不输出日志；
-等待期内未出现证书则显示 pending，并注明已等待秒数，Caddy 仍可能在后台重试，
-此时才摘出最近 1 小时内该域名的 TLS/ACME 日志，并给出查看完整日志的命令。
-等待可用 Ctrl+C 中止。
-若站点是仅 HTTP 模式，该命令直接提示不申请证书，不进入等待。
+    dfm vhost cert
+
+这是 DFM 唯一的证书触发动作：先校验 Caddyfile 并 reload FrankenPHP，
+让 Caddy 按当前配置尝试签发，然后列出证书目录里的全部证书（域名、路径、有效期）。
+命令不接受域名参数：签发对象完全由 Caddyfile 的地址行决定，dfm 不做域名筛选，
+也不修改任何站点配置。
+
+证书由 Caddy 后台异步签发，reload 后立即列出的是当时已存在的证书；
+刚触发的签发可能还没完成，需稍后再执行本命令查看，或直接查看证书目录。
+签发失败时查看 journalctl -u frankenphp 中的 ACME/TLS 日志。
+
+开发调试时直接编辑 /etc/frankenphp/Caddyfile 的全局块启用 staging CA
+（见 docs/configuration.md），避开生产 CA 每周 5 张证书的限制。
+源码 conf/Caddyfile 只在主配置缺失时用于生成，改动不会写回已有文件。
 
 ## 列出与删除站点
 
     dfm vhost list
     dfm vhost del
+    dfm vhost del <域名>
 
-删除时先移走配置并校验，校验失败会还原文件。网站文件、证书和日志均不删除。
+list 列出 Caddyfile.d/ 下的站点文件名，不含 default.caddyfile。
+del 可直接带域名，也可交互输入；按 <域名>.caddyfile 删除整个配置文件。
+删除时先把文件移到临时副本，先 validate 再 reload，校验失败会还原。
+网站文件、证书和日志均不删除。
 
 ## 伪静态片段
 
@@ -128,7 +147,7 @@ http:// 前缀，并把 # Scheme: http 改成 # Scheme: https；网站目录、�
     dfm addons            # 进入菜单
 
 扩展管理已内置于 dfm，不安装独立的全局命令。也可以在本目录直接运行
-./addons.sh，用法相同。
+./dfm addons，用法相同。
 
 ## 可用名称与来源
 
@@ -146,7 +165,7 @@ http:// 前缀，并把 # Scheme: http 改成 # Scheme: https；网站目录、�
   swoole       php-zts-swoole（若仓库提供）
 
 安装或卸载扩展后会重启 frankenphp 服务；memcached 与 redis-server 会设为开机启动。
-通过 addons.sh 安装的独立服务包不在 dfm uninstall 的清理范围内。
+通过 dfm addons 安装的独立服务包不在 dfm uninstall 的清理范围内。
 
 ## HTTPS 与证书
 
@@ -154,6 +173,7 @@ http:// 前缀，并把 # Scheme: http 改成 # Scheme: https；网站目录、�
   - 添加站点时选择仅 HTTP，站点地址写成 http://<域名>，Caddy 不申请证书，
     也不跳转 HTTPS；适合内网域名、证书尚未就绪或暂时只用 80 端口的场景。
   - 首次签发需要域名解析到本机且 80/443 端口可访问。
+  - 同一个 HTTPS 站点块中的多个域名由 Caddy 各自申请证书；dfm vhost cert 只做全局 reload 并列出证书，不读取站点文件。
   - 证书与密钥存放在 /var/lib/frankenphp/caddy，不放在 /etc/frankenphp/ssl。
   - 查看证书相关数据请直接查看该目录；不要手工编辑 Caddy 的证书存储。
   - 需要自定义 CA、DNS 挑战或 ACME 账号时，编辑 /etc/frankenphp/Caddyfile 的全局块。
@@ -165,8 +185,8 @@ http:// 前缀，并把 # Scheme: http 改成 # Scheme: https；网站目录、�
   修改当前目录的 dfm 后，用同步脚本更新系统中的命令。
   默认同步本目录的 dfm 与 dfm-common.sh 到 /usr/local/bin/；同步前会检查 Bash 语法，
   并确认 /usr/bin/dfm 仍是指向 /usr/local/bin/dfm 的软链。
-  也可重新运行 install.sh，安装器会备份被覆盖的命令为 *.dfm.orig。
-  addons.sh 不安装到系统路径，无需同步。
+  也可重新运行 install.sh 直接覆盖命令文件，不会生成 *.dfm.orig 备份。
+  扩展管理已内置于 dfm，随 dfm 同步，无需单独处理。
 
 ## 常用检查
 

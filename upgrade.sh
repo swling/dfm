@@ -32,8 +32,8 @@ Interactive upgrades require typing "yes" to accept the risk. --yes skips that
 confirmation but requires an explicit version; non-interactive upgrades require
 both an explicit version and --yes.
 
-After upgrading PHP across branches, third-party extensions installed by
-addons.sh must be reinstalled for the new branch. php-zts-* packages keep the
+After upgrading PHP across branches, third-party extensions installed with
+dfm addons must be reinstalled for the new branch. php-zts-* packages keep the
 same names across branches, so apt replaces them in place; check for leftovers
 only if a package was dropped by the new branch.
 EOF
@@ -343,7 +343,7 @@ upgrade_php() {
     finish_frankenphp_upgrade "$target_branch"
     printf 'PHP switched from %s to %s (FrankenPHP APT version %s).\n' \
         "$current_branch" "$target_branch" "$version"
-    warn "Reinstall addons extensions for PHP ${target_branch}, for example: cd ${SCRIPT_DIR} && ./addons.sh install redis"
+    warn "Reinstall addons extensions for PHP ${target_branch}, for example: cd ${SCRIPT_DIR} && ./dfm addons install redis"
     warn "php-zts-* package names are shared across branches; apt replaces them in place. Check for leftovers after verifying the new runtime."
 }
 

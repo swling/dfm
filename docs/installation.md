@@ -69,12 +69,14 @@
   新站点的证书在浏览器首次访问 https 域名时由 Caddy 自动签发；
   可用 journalctl -u frankenphp 查看 ACME 过程。
 
-  upgrade.sh、sync-dfm.sh 以及源码目录的 ./addons.sh 都依赖本目录；
+  upgrade.sh 与 sync-dfm.sh 都依赖本目录；
   请保留源码目录，不要在安装后删除。
 
 ## 与 LNMP 版本的行为差异
 
-  - 站点文件写在 /etc/frankenphp/Caddyfile.d/<域名>.caddyfile，不使用 sites-enabled。
+  - 站点文件写在 /etc/frankenphp/Caddyfile.d/，dfm 新建时按主域名命名，可手工把多个域名写进同一文件；list / del 按文件名管理，cert 只做全局 reload 并列出证书，不使用 sites-enabled。
+  - 重装时 /etc/frankenphp/Caddyfile 一律保留，只有文件不存在时才按 conf/Caddyfile 生成。
+  - 重装时 default.caddyfile 一律保留，只有文件不存在时才按 conf/default-site.caddyfile 生成。
   - 默认站点只监听 HTTP；域名站点默认启用 HTTPS 与 HTTP 到 HTTPS 跳转，
     添加站点时选择仅 HTTP 或运行 dfm vhost add-http 时只监听 80 端口。
   - 伪静态片段是 Caddyfile 语法，php_server 已内置 try_files 与 PATH_INFO 处理。

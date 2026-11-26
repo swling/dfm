@@ -217,8 +217,14 @@ discover_mysql_components() {
 }
 
 write_mysql_source() {
-    local components=$1 source_tmp
+    local components=$1 source_tmp orig
     install -d -m 0755 "$(dirname "$MYSQL_SOURCE")"
+    orig="${MYSQL_SOURCE}.dfm.orig"
+    if [[ -e "$MYSQL_SOURCE" && ! -e "$orig" ]] &&
+       ! grep -Fq 'repo.mysql.com/apt/debian' "$MYSQL_SOURCE"; then
+        cp -p -- "$MYSQL_SOURCE" "$orig"
+        warn "Existing MySQL APT source is unrelated to DFM; backed up and overwritten."
+    fi
     source_tmp="$(mktemp "${MYSQL_SOURCE}.XXXXXX")"
     printf 'deb [arch=%s signed-by=%s] %s/ %s %s\n' \
         "$MYSQL_ARCHITECTURE" "$MYSQL_KEYRING" "$MYSQL_REPO_URL" \
@@ -565,26 +571,29 @@ EOF
     chmod 0644 "$FRANKENPHP_DROPIN"
 
     caddyfile="${FRANKENPHP_CONFIG_DIR}/Caddyfile"
-    if [[ -f "$caddyfile" && ! -L "$caddyfile" ]] &&
-       ! grep -Fq '# Managed by DFM' "$caddyfile" &&
-       [[ ! -e "${caddyfile}.dfm.orig" ]]; then
-        cp -p -- "$caddyfile" "${caddyfile}.dfm.orig"
+    if [[ -e "$caddyfile" || -L "$caddyfile" ]]; then
+        info "Keeping existing Caddyfile: ${caddyfile}"
+    else
+        email_line=
+        if [[ -n "$ACME_EMAIL" ]]; then
+            email_line="    email ${ACME_EMAIL}"
+        fi
+        caddyfile_tmp="$(mktemp "${caddyfile}.XXXXXX")"
+        sed "s#@EMAIL_LINE@#${email_line}#" "$SCRIPT_DIR/conf/Caddyfile" > "$caddyfile_tmp"
+        chmod 0644 "$caddyfile_tmp"
+        mv "$caddyfile_tmp" "$caddyfile"
     fi
-    email_line=
-    if [[ -n "$ACME_EMAIL" ]]; then
-        email_line="    email ${ACME_EMAIL}"
-    fi
-    caddyfile_tmp="$(mktemp "${caddyfile}.XXXXXX")"
-    sed "s#@EMAIL_LINE@#${email_line}#" "$SCRIPT_DIR/conf/Caddyfile" > "$caddyfile_tmp"
-    chmod 0644 "$caddyfile_tmp"
-    mv "$caddyfile_tmp" "$caddyfile"
 
     default_site="${FRANKENPHP_SITE_DIR}/default.caddyfile"
-    default_site_tmp="$(mktemp "${default_site}.XXXXXX")"
-    sed "s#@DEFAULT_WEB_ROOT@#${DEFAULT_WEB_ROOT}#g" \
-        "$SCRIPT_DIR/conf/default-site.caddyfile" > "$default_site_tmp"
-    chmod 0644 "$default_site_tmp"
-    mv "$default_site_tmp" "$default_site"
+    if [[ -e "$default_site" || -L "$default_site" ]]; then
+        info "Keeping existing default site config: ${default_site}"
+    else
+        default_site_tmp="$(mktemp "${default_site}.XXXXXX")"
+        sed "s#@DEFAULT_WEB_ROOT@#${DEFAULT_WEB_ROOT}#g" \
+            "$SCRIPT_DIR/conf/default-site.caddyfile" > "$default_site_tmp"
+        chmod 0644 "$default_site_tmp"
+        mv "$default_site_tmp" "$default_site"
+    fi
 
     if [[ ! -e "$FRANKENPHP_CACHE_CONF" && ! -L "$FRANKENPHP_CACHE_CONF" ]]; then
         install -m 0644 "$SCRIPT_DIR/conf/cache-static.caddyfile" "$FRANKENPHP_CACHE_CONF"
@@ -609,14 +618,6 @@ EOF
 }
 
 install_management_commands() {
-    local cmd orig
-    for cmd in /usr/local/bin/dfm /usr/bin/dfm; do
-        orig="${cmd}.dfm.orig"
-        if [[ -e "$cmd" && ! -L "$cmd" && ! -e "$orig" ]] &&
-           ! cmp -s "$cmd" "$SCRIPT_DIR/dfm"; then
-            cp -p -- "$cmd" "$orig"
-        fi
-    done
     install -m 0755 "$SCRIPT_DIR/dfm-common.sh" /usr/local/bin/dfm-common.sh
     install -m 0755 "$SCRIPT_DIR/dfm" /usr/local/bin/dfm
     ln -sfn /usr/local/bin/dfm /usr/bin/dfm

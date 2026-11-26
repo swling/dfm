@@ -28,15 +28,16 @@ usage() {
 Usage:
   dfm {start|stop|restart|reload|kill|status}
   dfm {frankenphp|mysql|mariadb} {start|stop|restart|reload|kill|status}
-  dfm vhost {add|add-http|list|del|cert <domain>}
-  dfm vhost {add-ssl|enable-https} <domain>
+  dfm vhost {add|add-http|list|del [domain]|cert}
   dfm addons {install|uninstall} <addon>
 
 HTTPS certificates are handled automatically by Caddy for domain site blocks.
 "dfm vhost add" enables HTTPS by default and can choose HTTP-only when asked.
 "dfm vhost add-http" creates an HTTP-only site without asking again.
-"dfm vhost add-ssl" converts an HTTP-only site to HTTPS later, keeping its config.
-There are no manual ssl / dnsssl certificate commands in DFM.
+"dfm vhost cert" reloads FrankenPHP and lists all issued certificates;
+it never edits site configs.
+Enable HTTPS by removing the http:// prefix from the site address manually.
+Sites are one file per domain; bind extra domains by editing the file directly.
 EOF
 }
 
@@ -83,7 +84,7 @@ check_certificate() {
     if command -v journalctl >/dev/null 2>&1; then
         sleep 1
         lines="$(journalctl -u frankenphp --since "$since" --no-pager 2>/dev/null |
-            awk -v d="$domain" 'index($0, d) || tolower($0) ~ /acme|certificate|tls|challenge|letsencrypt|http-01|dns-01/' |
+            awk 'tolower($0) ~ /acme|certificate|tls|challenge|letsencrypt|http-01|dns-01/' |
             tail -n 20 || true)"
         if [[ -n "$lines" ]]; then
             printf 'Caddy TLS/ACME log:\n'
@@ -156,6 +157,7 @@ service_bundle() {
 create_vhost_config() {
     local domain=$1 names=$2 webroot=$3 rewrite=$4 log_block=$5 scheme=$6
     local config="${SITE_DIR}/${domain}.caddyfile" addresses name prefix cert_log_since
+    local -A seen=()
 
     [[ ! -e "$config" && ! -L "$config" ]] ||
         fail "Virtual host already exists: $domain"
@@ -166,6 +168,11 @@ create_vhost_config() {
     [[ -e "${REWRITE_DIR}/${rewrite}.caddyfile" || -L "${REWRITE_DIR}/${rewrite}.caddyfile" ]] ||
         fail "Rewrite profile does not exist: ${rewrite}"
 
+    for name in $names; do
+        valid_domain "$name" || fail "Invalid domain name in site addresses: $name"
+        [[ -z "${seen[$name]:-}" ]] || fail "Duplicate domain in site addresses: $name"
+        seen[$name]=1
+    done
     # An explicit http:// scheme disables Caddy's automatic HTTPS for this site.
     if [[ "$scheme" == http ]]; then
         addresses="http://${domain}"
@@ -291,14 +298,18 @@ list_vhosts() {
 }
 
 delete_vhost() {
-    local domain backup config
+    local domain=${1:-} backup config
+
     require_root
     require_frankenphp
-    list_vhosts
-    read -r -p "Please enter domain you want to delete: " domain
+    if [[ -z "$domain" ]]; then
+        list_vhosts
+        read -r -p "Please enter domain you want to delete: " domain
+    fi
     valid_domain "$domain" || fail "Invalid domain name."
     config="${SITE_DIR}/${domain}.caddyfile"
     [[ -f "$config" && ! -L "$config" ]] || fail "Virtual host does not exist: $domain"
+
     backup="$(mktemp)"
     mv -- "$config" "$backup"
     if ! reload_frankenphp; then
@@ -309,62 +320,26 @@ delete_vhost() {
     printf 'Site config deleted. Website files were not removed: %s\n' "$domain"
 }
 
-show_certificate() {
-    local domain=$1
-    require_root
-    valid_domain "$domain" || fail "Invalid domain name."
-    [[ -f "${SITE_DIR}/${domain}.caddyfile" ]] ||
-        fail "Virtual host does not exist: $domain"
-    if grep -qx '# Scheme: http' "${SITE_DIR}/${domain}.caddyfile"; then
-        printf 'HTTP-only site: no HTTPS certificate is requested for %s.\n' "$domain"
-        return 0
-    fi
+request_certificate() {
+    local cert domain expiry found=0
 
-    check_certificate "$domain" "-1h"
-}
-
-enable_https() {
-    local domain=$1 config backup tmp cert_log_since
     require_root
     require_frankenphp
-    valid_domain "$domain" || fail "Invalid domain name."
-    config="${SITE_DIR}/${domain}.caddyfile"
-    [[ -f "$config" && ! -L "$config" ]] || fail "Virtual host does not exist: $domain"
-    grep -qx '# Scheme: http' "$config" ||
-        fail "Site is not HTTP-only; HTTPS is already enabled: $domain"
+    reload_frankenphp || fail "FrankenPHP reload failed."
+    printf 'Certificate request triggered.\n'
 
-    backup="$(mktemp)"
-    tmp="$(mktemp)"
-    cat -- "$config" > "$backup"
-    awk '
-        BEGIN { done = 0 }
-        /^# Scheme: http$/ {
-            print "# Scheme: https"
-            next
-        }
-        {
-            if (!done && $0 ~ /^[^#[:space:]].* \{$/) {
-                gsub(/http:\/\//, "")
-                done = 1
-            }
-            print
-        }
-    ' "$backup" > "$tmp"
-    if grep -q '^http://' "$tmp"; then
-        rm -f "$tmp" "$backup"
-        fail "Could not convert the site address line; original config is unchanged."
-    fi
-
-    cert_log_since="$(date '+%Y-%m-%d %H:%M:%S')"
-    cat -- "$tmp" > "$config"
-    if ! reload_frankenphp; then
-        cat -- "$backup" > "$config"
-        rm -f "$tmp" "$backup"
-        fail "FrankenPHP rejected the change; the site config was restored."
-    fi
-    rm -f "$tmp" "$backup"
-    printf 'HTTPS enabled for site: %s\n' "$domain"
-    check_certificate "$domain" "$cert_log_since"
+    printf 'HTTPS certificates:\n'
+    while IFS= read -r cert; do
+        domain=${cert##*/}
+        domain=${domain%.crt}
+        printf '  Domain: %s\n  File:   %s\n' "$domain" "$cert"
+        if command -v openssl >/dev/null 2>&1; then
+            expiry="$(openssl x509 -enddate -noout -in "$cert" 2>/dev/null | cut -d= -f2 || true)"
+            [[ -n "$expiry" ]] && printf '  Expiry: %s\n' "$expiry"
+        fi
+        found=1
+    done < <(find "$CADDY_DATA_DIR/certificates" -type f -name '*.crt' -print 2>/dev/null | sort)
+    (( found )) || printf '  none found in %s\n' "$CADDY_DATA_DIR/certificates"
 }
 
 addons_usage() {
@@ -567,15 +542,14 @@ case "${1:-}" in
         case "${2:-}" in
             add) add_vhost ;;
             add-http) add_vhost http ;;
-            add-ssl|enable-https)
-                [[ $# -eq 3 ]] || { usage >&2; exit 2; }
-                enable_https "$3"
-                ;;
             list) list_vhosts ;;
-            del) delete_vhost ;;
+            del)
+                [[ $# -le 3 ]] || { usage >&2; exit 2; }
+                delete_vhost "${3:-}"
+                ;;
             cert)
-                [[ $# -eq 3 ]] || { usage >&2; exit 2; }
-                show_certificate "$3"
+                [[ $# -eq 2 ]] || { usage >&2; exit 2; }
+                request_certificate
                 ;;
             *) usage >&2; exit 2 ;;
         esac

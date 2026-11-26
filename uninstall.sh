@@ -91,15 +91,6 @@ remove_files() {
     done
 }
 
-restore_orig() {
-    local orig=$1 dest=$2
-    if [[ -f "$orig" ]]; then
-        cp -p -- "$orig" "$dest" || { warn "还原失败: $orig -> $dest"; return 0; }
-        rm -f -- "$orig"
-        info "已还原: $dest"
-    fi
-}
-
 # ---- 参数 ----
 while (( $# )); do
     case "$1" in
@@ -194,16 +185,15 @@ plan_mysql() {
         "MySQL 安装器生成的配置: ${MYSQL_DFM_CNF}"
         "AppArmor 中为 ${MYSQL_DATA_DIR} 追加的规则"
         "软链 /var/lib/mysql（不触碰其指向的数据）"
-        "APT 仓库与密钥: ${MYSQL_SOURCE}, ${MYSQL_KEYRING}"
+        "APT 仓库与密钥: ${MYSQL_SOURCE}, ${MYSQL_KEYRING}（源文件有 .dfm.orig 时还原原内容）"
     )
 }
 
 plan_frankenphp() {
     REMOVE_ITEMS+=(
-        "还原 /etc/frankenphp/Caddyfile.dfm.orig（如存在）"
         "systemd 覆盖配置: ${FRANKENPHP_DROPIN_DIR}/10-dfm.conf"
         "内置伪静态规则（自定义规则保留）、cache-static.caddyfile"
-        "APT 仓库与密钥: /etc/apt/sources.list.d/static-php*.list、/etc/apt/keyrings/static-php*.asc（仅 DFM 管理）"
+        "APT 仓库与密钥: /etc/apt/sources.list.d/static-php*.list、/etc/apt/keyrings/static-php*.asc（源文件有 .dfm.orig 时还原原内容）"
         "状态文件: ${STATE_DIR}/php-version、${STATE_DIR}/frankenphp-version"
     )
 }
@@ -294,6 +284,7 @@ remove_apparmor_rules() {
 }
 
 run_mysql() {
+    local orig
     step "卸载 MySQL"
     systemctl stop mysql >/dev/null 2>&1 || true
 
@@ -313,19 +304,35 @@ run_mysql() {
     fi
     warn "MySQL 数据目录 ${MYSQL_DATA_DIR} 保留，请自行处理。"
 
-    step "删除 MySQL APT 仓库与密钥"
-    remove_files "$MYSQL_SOURCE" "$MYSQL_KEYRING" \
-                 "${MYSQL_SOURCE}.lnmp-debian.orig"
+    step "处理 MySQL APT 仓库与密钥"
+    orig="${MYSQL_SOURCE}.dfm.orig"
+    if [[ -f "$orig" ]]; then
+        mv -f -- "$orig" "$MYSQL_SOURCE" && info "已还原 APT 源: $MYSQL_SOURCE"
+    else
+        remove_files "$MYSQL_SOURCE"
+    fi
+    remove_files "$MYSQL_KEYRING"
 }
 
 # ---- 组件：FrankenPHP ----
 remove_frankenphp_repository() {
-    local source key
+    local source key orig
     for source in /etc/apt/sources.list.d/static-php*.list; do
         [[ -f "$source" ]] || continue
         grep -Fq "$FRANKENPHP_MARKER" "$source" || continue
         key="/etc/apt/keyrings/$(basename "${source%.list}").asc"
-        remove_files "$source" "$key" "${source}.dfm.orig"
+        orig="${source}.dfm.orig"
+        if [[ -f "$orig" ]]; then
+            mv -f -- "$orig" "$source" && info "已还原 APT 源: $source"
+        else
+            remove_files "$source"
+        fi
+        remove_files "$key"
+    done
+    for orig in /etc/apt/sources.list.d/static-php*.list.dfm.orig; do
+        [[ -f "$orig" ]] || continue
+        source="${orig%.dfm.orig}"
+        mv -f -- "$orig" "$source" && info "已还原 APT 源: $source"
     done
 }
 
@@ -334,8 +341,6 @@ run_frankenphp() {
 
     step "卸载 FrankenPHP"
     systemctl stop frankenphp >/dev/null 2>&1 || true
-
-    restore_orig "${FRANKENPHP_DIR}/Caddyfile.dfm.orig" "${FRANKENPHP_DIR}/Caddyfile"
 
     dropin="${FRANKENPHP_DROPIN_DIR}/10-dfm.conf"
     remove_files "$dropin"
@@ -361,25 +366,13 @@ run_frankenphp() {
     remove_frankenphp_repository
 
     warn "站点配置、证书数据 ${CADDY_DATA} 与日志 ${FRANKENPHP_LOG_DIR} 均未处理。"
-    warn "通过 addons.sh 安装的 memcached / redis-server 等独立服务包未移除。"
+    warn "通过 dfm addons 安装的 memcached / redis-server 等独立服务包未移除。"
 }
 
 # ---- all：管理组件 ----
 run_all_extra() {
-    local cmd orig
     step "处理管理命令"
-    for cmd in /usr/local/bin/dfm /usr/bin/dfm; do
-        orig="${cmd}.dfm.orig"
-        if [[ -f "$orig" ]]; then
-            cp -p -- "$orig" "$cmd" 2>/dev/null || warn "还原原命令失败: $orig"
-            rm -f -- "$orig"
-            info "已还原原命令: $cmd"
-        elif [[ -e "$cmd" || -L "$cmd" ]]; then
-            rm -f -- "$cmd"
-            info "已删除: $cmd"
-        fi
-    done
-    remove_files /usr/local/bin/dfm-common.sh
+    remove_files /usr/local/bin/dfm /usr/bin/dfm /usr/local/bin/dfm-common.sh
 
     step "删除 DFM 配置与状态"
     remove_files "$SYSTEM_CONFIG"
@@ -424,9 +417,9 @@ print_summary() {
 EOF
     if [[ "$COMPONENT" == all ]]; then
         cat <<'EOF'
-已移除 DFM 软件、管理命令、安装器生成的配置与 APT 仓库，并还原了可被还原的
-.dfm.orig 配置。Caddyfile.d/ 下所有站点配置（含 default.caddyfile）均未处理，
-下次安装时 default.caddyfile 会被直接覆盖。
+已移除 DFM 软件、管理命令、安装器生成的配置与 APT 仓库，并清理或还原了安装器
+生成的 .dfm.orig 备份。Caddyfile.d/ 下所有站点配置（含 default.caddyfile）均未处理；
+下次安装时已有 default.caddyfile 会原样保留，只有缺失时才按模板生成。
 EOF
     else
         printf '已移除 %s 相关软件、配置与 APT 仓库；未选择的组件、管理命令和共享配置保持原样。\n' "$COMPONENT"

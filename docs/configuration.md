@@ -13,6 +13,22 @@
 重装同样以源码目录的 dfm.conf 为准，系统会用新配置覆盖 /etc/dfm.conf；
 需要保留旧值时先备份 /etc/dfm.conf。
 
+/etc/dfm.conf 的使用场景：
+
+  - install.sh    只读取源码目录的 dfm.conf，不读取 /etc/dfm.conf；安装时把源码配置写到 /etc/dfm.conf。
+  - dfm 管理命令  每次运行先读取 /etc/dfm.conf，缺失时回退脚本同目录的 dfm.conf（源码目录直接运行时即源码 dfm.conf）；用于 WEB_ROOT、FRANKENPHP_LOG_DIR、CADDY_DATA_DIR。
+  - uninstall.sh  读取 /etc/dfm.conf，缺失时回退脚本同目录的 dfm.conf；用于 WEB_ROOT、MYSQL_DATA_DIR、FRANKENPHP_LOG_DIR，决定卸载提示与 AppArmor 规则清理。
+  - upgrade.sh、sync-dfm.sh 不读取 /etc/dfm.conf。
+
+MYSQL_DATA_DIR 只在安装阶段生效：仅当源码 dfm.conf 中该值不是 /var/lib/mysql、
+且 /var/lib/mysql 与目标目录指向不同时，安装器才会迁移数据、建软链并写入
+/etc/mysql/mysql.conf.d/zz-dfm.cnf。默认配置下安装器完全不碰 MySQL 自身配置。
+
+/etc/dfm.conf 里的 MYSQL_DATA_DIR 只被卸载脚本用于提示和 AppArmor 规则清理，
+重装时又会被源码 dfm.conf 覆盖。安装后直接修改 /etc/mysql/ 下 MySQL 配置的
+做法不会被安装器覆盖或迁移，卸载脚本也不会删除这些手工配置；但卸载提示中的
+数据目录仍取自 /etc/dfm.conf，可能与实际配置不一致，需要自行核对。
+
 ## 变量说明
 
   WEB_ROOT            新建站点的默认父目录。
@@ -46,21 +62,41 @@
 
 ## Caddyfile 配置行为
 
-  主配置         由 conf/Caddyfile 渲染到 /etc/frankenphp/Caddyfile。
-                 原包自带文件首次安装时备份为 /etc/frankenphp/Caddyfile.dfm.orig。
-                 全局块包含 frankenphp、可选 email 与固定证书存储路径。
+  主配置         只有 /etc/frankenphp/Caddyfile 不存在时才按 conf/Caddyfile 渲染；
+                 已有文件（含软链）重装时一律保留，不再做任何内容比较。
+                 全局调优（num_threads、php_ini 等）和 ACME email 都需要自行维护，
+                 重装不会把源码模板或新的 ACME_EMAIL 写回已有文件。
+                 首次生成的全局块包含 frankenphp、可选 email 与固定证书存储路径，
+                 并附带注释掉的线程、并发、php_ini 与 worker 调优示例，按需取消注释即可。
+  调优示例       conf/Caddyfile 的 frankenphp 块内注释了 num_threads、max_threads、
+                 max_wait_time、max_idle_time、max_requests、php_ini 与 worker。
+                 默认值：每 CPU 2 线程，max_idle_time 5s，其余未设置。
+                 示例仅供参考，需按内存与业务调整后再启用。
+  ACME 测试      模板 conf/Caddyfile 注释了 acme_ca 行，指向 Let's Encrypt staging：
+                 https://letsencrypt.org/docs/staging-environment/
+                 模板只在首次生成主配置时生效；已有 /etc/frankenphp/Caddyfile
+                 需直接编辑该文件的全局块。开发调试时取消注释 acme_ca 行；
+                 staging 证书不被浏览器信任、
+                 ACME 账户独立、限流宽松（同组域名每周 30000 张）。
+                 正式签发前必须重新注释，否则拿到的是不受信任的证书。
   站点加载       主配置末尾 import Caddyfile.d/*.caddyfile。
-                 默认站点是 default.caddyfile，其他站点按域名命名。
+                 默认站点是 default.caddyfile；dfm 新建站点按主域名命名，
+                 手工配置可让多个域名共用一个文件或写多个站点块。
+  站点识别       dfm vhost list / del 按文件名处理，不解析地址行：
+                 list 列出 *.caddyfile（不含 default.caddyfile），del 删除 <域名>.caddyfile。
+                 手工合并的多域名文件由用户自行维护，dfm 不做域名级拆分或重复检查。
   证书存储       storage file_system /var/lib/frankenphp/caddy。
                  备份服务器时需要包含该目录，否则恢复后证书要重新签发。
   自动 HTTPS     dfm vhost add 默认创建域名站点并自动签发、续期证书；
                  选择仅 HTTP（或 dfm vhost add-http）时地址加 http:// 前缀，
                  不签发证书，也不做 HTTP 到 HTTPS 跳转。
-  站点方案标记   仅 HTTP 的站点配置第二行写入 # Scheme: http，
-                 dfm vhost cert 据此跳过证书等待。
-                 dfm vhost add-ssl 会把标记改为 https 并去掉地址上的 http:// 前缀。
-  默认站点       从 conf/default-site.caddyfile 渲染，按 DEFAULT_WEB_ROOT 设置根目录，
-                 只提供 HTTP，安装时直接覆盖 default.caddyfile。
+  站点方案标记   仅 HTTP 的站点配置写入 # Scheme: http，作为人工阅读的备注；
+                 是否申请证书以地址行中该域名的 http:// 前缀为准。
+                 要让域名申请证书，手工去掉该地址的前缀，再用 dfm vhost cert
+                 触发 reload 并列出已签发证书。该命令不改写任何配置。
+  默认站点       只有 default.caddyfile 不存在时才按 conf/default-site.caddyfile 渲染；
+                 已有文件（含软链）重装时一律保留，DEFAULT_WEB_ROOT 的变化
+                 不会应用到已有默认站点。默认模板只提供 HTTP。
   静态缓存       conf/cache-static.caddyfile 部署到 /etc/frankenphp/cache-static.caddyfile，
                  由每个站点自行 import；已有文件不覆盖。
   隐藏文件       站点块用 @dotfiles path_regexp 匹配并 respond 404。
@@ -90,7 +126,7 @@
   内部状态            /etc/dfm/
   Caddy 主配置        /etc/frankenphp/Caddyfile
   默认站点            /etc/frankenphp/Caddyfile.d/default.caddyfile
-  站点配置            /etc/frankenphp/Caddyfile.d/<域名>.caddyfile
+  站点配置            /etc/frankenphp/Caddyfile.d/*.caddyfile（dfm 新建时以主域名命名，可手工合并多域名）
   静态缓存片段        /etc/frankenphp/cache-static.caddyfile
   伪静态片段          /etc/frankenphp/rewrite/<名称>.caddyfile
   PHP 配置            /etc/php-zts/php.ini、/etc/php-zts/conf.d/
