@@ -1,12 +1,12 @@
 # Managed by DFM. HTTP-only default site for hostnames without their own site block.
 # Domain site blocks automatically get HTTPS from Caddy; this catch-all does not.
 http:// {
-    root * @DEFAULT_WEB_ROOT@
+    root @DEFAULT_WEB_ROOT@
     encode zstd br gzip
 
     import /etc/frankenphp/cache-static.caddyfile
 
-    @dotfiles path_regexp dotfiles (^|/)\.
+    @dotfiles path_regexp (^|/)\.
     handle @dotfiles {
         respond 404
     }

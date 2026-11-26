@@ -39,12 +39,12 @@ fp 是 frankenphp 的别名，db 是 mysql 的别名；mariadb 也作为 mysql �
 
     # Managed by DFM. Site: example.com
     example.com, www.example.com {
-        root * /home/wwwroot/example.com
+        root /home/wwwroot/example.com
         encode zstd br gzip
 
         import /etc/frankenphp/cache-static.caddyfile
 
-        @dotfiles path_regexp dotfiles (^|/)\.
+        @dotfiles path_regexp (^|/)\.
         handle @dotfiles {
             respond 404
         }
@@ -64,7 +64,7 @@ fp 是 frankenphp 的别名，db 是 mysql 的别名；mariadb 也作为 mysql �
     # Managed by DFM. Site: example.com
     # Scheme: http
     http://example.com, http://www.example.com {
-        root * /home/wwwroot/example.com
+        root /home/wwwroot/example.com
         ...
     }
 
@@ -89,7 +89,7 @@ reload 前记录时间点，随后轮询证书存储：默认每 2 秒检查一�
     # Managed by DFM. Site: ceshi.fenbu.net
     # Scheme: http
     http://ceshi.fenbu.net, http://sim.yisuan.net {
-        root * /home/wwwroot/wordpress
+        root /home/wwwroot/wordpress
         encode zstd br gzip
         import /etc/frankenphp/cache-static.caddyfile
         php_server

@@ -192,12 +192,12 @@ create_vhost_config() {
 # Managed by DFM. Site: ${domain}
 # Scheme: ${scheme}
 ${addresses} {
-    root * ${webroot}
+    root ${webroot}
     encode zstd br gzip
 
     import /etc/frankenphp/cache-static.caddyfile
 
-    @dotfiles path_regexp dotfiles (^|/)\\.
+    @dotfiles path_regexp (^|/)\\.
     handle @dotfiles {
         respond 404
     }
