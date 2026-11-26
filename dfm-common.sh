@@ -46,24 +46,26 @@ detect_php_branches() {
 }
 
 stop_other_frankenphp() {
-    local -a pids=()
+    local admin_url=http://localhost:2019
     local _
 
     systemctl stop frankenphp >/dev/null 2>&1 || true
 
-    mapfile -t pids < <(pgrep -x frankenphp 2>/dev/null || true)
-    ((${#pids[@]} > 0)) || return 0
+    # Caddy's admin endpoint is bound by one process at a time. A successful
+    # probe means a leftover instance is still listening on :2019 (and usually
+    # :80/:443); no response means there is nothing to clean up.
+    curl --fail --silent --max-time 2 "${admin_url}/config/" >/dev/null 2>&1 || return 0
 
-    printf 'Stopping existing FrankenPHP processes...\n'
-    kill -TERM "${pids[@]}" 2>/dev/null || true
+    printf 'Stopping the leftover FrankenPHP instance via the admin API...\n'
+    curl --silent --max-time 5 -X POST "${admin_url}/stop" >/dev/null 2>&1 || true
+
     for _ in {1..25}; do
-        mapfile -t pids < <(pgrep -x frankenphp 2>/dev/null || true)
-        ((${#pids[@]} == 0)) && break
+        curl --fail --silent --max-time 1 "${admin_url}/config/" >/dev/null 2>&1 || {
+            printf 'Leftover FrankenPHP instance stopped.\n'
+            return 0
+        }
         sleep 0.2
     done
-    if ((${#pids[@]} > 0)); then
-        kill -KILL "${pids[@]}" 2>/dev/null || true
-        sleep 0.2
-    fi
-    printf 'Existing FrankenPHP processes stopped.\n'
+
+    fail "The FrankenPHP admin endpoint is still responding after POST /stop. Check which process holds :2019, :80 and :443 (for example with ss -ltnp) and stop it before continuing."
 }
