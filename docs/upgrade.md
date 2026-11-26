@@ -12,8 +12,8 @@
     sudo ./upgrade.sh mysql [版本]
 
 省略组件时显示交互菜单。FrankenPHP 与 MySQL 的版本可以是上游版本（如
-`8.4.0`）或完整 APT 版本；PHP 只接受 `8.2` / `8.3` / `8.4` / `8.5`
-这样的分支号。
+`8.4.0`）或完整 APT 版本；PHP 只接受 dfm.conf 中
+PHP_BRANCH_CANDIDATES 列出的分支号。
 
 `--yes` 必须放在组件之前，并显式指定版本：
 
@@ -54,14 +54,14 @@
   MySQL 密钥            /usr/share/keyrings/mysql-apt.gpg
 
 FrankenPHP 与 php-zts-* 来自同一个仓库，必须一起升级，不能只更新其中一个。
-Oracle MySQL 的 Debian 13 仓库目前只提供 amd64 构建；FrankenPHP 仓库提供
-amd64 与 arm64 构建。
+架构白名单默认允许 Oracle MySQL 仅 amd64、FrankenPHP 为 amd64 与 arm64，
+可在 dfm.conf 的 MYSQL_ARCHITECTURES 与 FRANKENPHP_ARCHITECTURES 调整。
 
 ## 升级流程
 
 脚本对每个组件都先确认风险、打印 APT 演练计划，再执行安装。
 
-  - 检查 root 权限、Debian 13 及以上版本、组件已安装且服务处于 active 状态。
+  - 检查 root 权限、dfm.conf 中 MIN_DEBIAN_MAJOR 指定的最低版本及以上、组件已安装且服务处于 active 状态。
   - 解析版本：从 apt-cache madison 中只取目标仓库的候选版本，并要求严格高于当前版本。
   - 打印 apt-get -s install 的结果，确认后再执行安装。
   - 安装后校验 Caddyfile（FrankenPHP / PHP）或重启服务（MySQL），确认服务 active。

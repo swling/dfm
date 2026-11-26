@@ -9,6 +9,17 @@
     PHP_VERSION=""
     MYSQL_VERSION=""
     ACME_EMAIL=""
+    PHP_BRANCH_CANDIDATES="8.2 8.3 8.4 8.5"
+    PHP_BRANCH_PROBE_TIMEOUT=20
+    MYSQL_MIN_MAJOR_VERSION=8
+    MIN_DEBIAN_MAJOR=13
+    MYSQL_ARCHITECTURES="amd64"
+    FRANKENPHP_ARCHITECTURES="amd64 arm64"
+    MYSQL_GPG_KEY_URL="https://repo.mysql.com/RPM-GPG-KEY-mysql-2025"
+    MYSQL_GPG_FINGERPRINT="BCA43417C3B485DD128EC6D4B7B3B788A8D3785C"
+    FRANKENPHP_ADMIN_URL="http://localhost:2019"
+    FRANKENPHP_STOP_POLL_ATTEMPTS=25
+    FRANKENPHP_STOP_POLL_INTERVAL=0.2
 
 重装同样以源码目录的 dfm.conf 为准，系统会用新配置覆盖 /etc/dfm.conf；
 需要保留旧值时先备份 /etc/dfm.conf。
@@ -18,7 +29,8 @@
   - install.sh    只读取源码目录的 dfm.conf，不读取 /etc/dfm.conf；安装时把源码配置写到 /etc/dfm.conf。
   - dfm 管理命令  每次运行先读取 /etc/dfm.conf，缺失时回退脚本同目录的 dfm.conf（源码目录直接运行时即源码 dfm.conf）；用于 WEB_ROOT、FRANKENPHP_LOG_DIR、CADDY_DATA_DIR。
   - uninstall.sh  读取 /etc/dfm.conf，缺失时回退脚本同目录的 dfm.conf；用于 WEB_ROOT、MYSQL_DATA_DIR、FRANKENPHP_LOG_DIR，决定卸载提示与 AppArmor 规则清理。
-  - upgrade.sh、sync-dfm.sh 不读取 /etc/dfm.conf。
+  - upgrade.sh 读取 /etc/dfm.conf，缺失时回退脚本同目录的 dfm.conf；用于探测与平台参数。
+  - sync-dfm.sh 不读取 /etc/dfm.conf。
 
 MYSQL_DATA_DIR 只在安装阶段生效：仅当源码 dfm.conf 中该值不是 /var/lib/mysql、
 且 /var/lib/mysql 与目标目录指向不同时，安装器才会迁移数据、建软链并写入
@@ -35,12 +47,35 @@ MYSQL_DATA_DIR 只在安装阶段生效：仅当源码 dfm.conf 中该值不是 
   DEFAULT_WEB_ROOT    未匹配域名时默认站点的根目录。
   FRANKENPHP_LOG_DIR  按站点开启访问日志时的输出目录。
   MYSQL_DATA_DIR      MySQL 数据目录，可用于独立磁盘；逻辑与 LNMP 版本一致。
-  PHP_VERSION         留空则交互选择；可填 8.2 / 8.3 / 8.4 / 8.5。
+  PHP_VERSION         留空则交互选择；填写时必须是 PHP_BRANCH_CANDIDATES 中的分支。
   MYSQL_VERSION       留空则交互选择；填写时必须是菜单中的确切版本字符串。
   ACME_EMAIL          可选，写进 Caddyfile 全局 email 指令，用于 ACME 通知。
 
+  PHP_BRANCH_CANDIDATES  探测的 PHP 分支候选，空格分隔；最后一个可用分支为默认。
+  PHP_BRANCH_PROBE_TIMEOUT  单个分支仓库探测的超时秒数。
+  MYSQL_MIN_MAJOR_VERSION   仓库中接受的最低 MySQL 主版本号。
+  MIN_DEBIAN_MAJOR      允许安装的最低 Debian 主版本号。
+  MYSQL_ARCHITECTURES   MySQL 仓库支持的 CPU 架构，空格分隔。
+  FRANKENPHP_ARCHITECTURES  FrankenPHP 仓库支持的 CPU 架构，空格分隔。
+  MYSQL_GPG_KEY_URL     Oracle MySQL 仓库签名密钥的下载地址。
+  MYSQL_GPG_FINGERPRINT 预期的 MySQL 密钥指纹；不匹配即报错退出。
+  FRANKENPHP_ADMIN_URL  Caddy admin 端点；单实例清理时用它探测与关闭遗留实例。
+  FRANKENPHP_STOP_POLL_ATTEMPTS  关闭遗留实例后的轮询次数。
+  FRANKENPHP_STOP_POLL_INTERVAL  每轮轮询的间隔秒数。
+
 所有路径必须是绝对路径，且只包含字母、数字、点、下划线、斜杠和连字符，
 不能包含 .. 段。ACME_EMAIL 必须是合法邮箱格式，否则安装器报错退出。
+
+## 探测与平台参数
+
+  install.sh、upgrade.sh 与 dfm 都从配置读取这些值，函数内部不再写死：
+  PHP 分支候选与探测超时、MySQL 最低主版本、最低 Debian 版本、
+  两个仓库的架构白名单、Oracle MySQL 签名密钥地址与指纹，
+  以及 Caddy admin 端点与遗留实例清理的轮询参数。
+
+  dfm-common.sh 保留同名默认值，配置缺失时脚本仍能运行。
+  修改源码 dfm.conf 后需要重新安装才会写入 /etc/dfm.conf；
+  upgrade.sh 优先读 /etc/dfm.conf，缺失时回退源码目录的 dfm.conf。
 
 ## 版本变量规则
 

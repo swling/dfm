@@ -9,7 +9,7 @@
 
 ## 前置条件
 
-  - Debian 13 或更高版本，root 权限，可用的 APT 网络。
+  - Debian 13（默认值，见 dfm.conf 的 MIN_DEBIAN_MAJOR）或更高版本，root 权限，可用的 APT 网络。
   - 计划使用 HTTPS 的域名已解析到本机，80 与 443（含 UDP/443）端口可达。
   - 先备份数据库和网站数据。
   - 安装 MySQL 时软件包可能要求在终端完成配置，建议使用交互终端。
@@ -19,7 +19,8 @@
   FrankenPHP   FrankenPHP 官方文档列出的 deb 仓库：
                https://pkg.henderkes.com/api/packages/<代码>/debian
                仓库套件为 php-zts，组件为 main，使用仓库自带的签名密钥。
-               代码 82/83/84/85 分别对应 PHP 8.2/8.3/8.4/8.5，
+               代码为分支号去掉小数点，例如 8.4 对应 84；
+               候选分支由 dfm.conf 的 PHP_BRANCH_CANDIDATES 决定，
                同一时刻只启用一个分支的仓库。
 
   MySQL        Oracle MySQL 官方 APT 仓库 https://repo.mysql.com/apt/debian。
@@ -32,12 +33,13 @@
 
   Debian       ca-certificates、curl、gnupg 等基础依赖来自 Debian APT。
 
-组件来源中没有 sury、nginx.org，也没有 acme.sh。Oracle MySQL 的 Debian 13
-仓库目前只提供 amd64 构建；FrankenPHP 仓库提供 amd64 与 arm64 构建。
+组件来源中没有 sury、nginx.org，也没有 acme.sh。默认架构白名单为
+Oracle MySQL 仅 amd64、FrankenPHP 为 amd64 与 arm64，
+可在 dfm.conf 的 MYSQL_ARCHITECTURES 与 FRANKENPHP_ARCHITECTURES 调整。
 
 ## 版本选择流程
 
-  1. 安装器探测 8.2 至 8.5 中哪些分支的仓库可访问，列出菜单。
+  1. 安装器探测 PHP_BRANCH_CANDIDATES 列出的分支中哪些可访问，列出菜单。
   2. dfm.conf 中的 PHP_VERSION 作为菜单默认值；值不可用时警告并回退到最新可用分支。
   3. MySQL 列出仓库中全部 8.x 版本并标注 LTS / 创新版，默认选版本最高的 LTS。
   4. MYSQL_VERSION 若已设置，必须是菜单中的确切值，否则报错退出。

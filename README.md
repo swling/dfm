@@ -77,7 +77,7 @@ MySQL 的安装、数据目录迁移和选版逻辑保持不变。
   systemd 与服务
 
   - /etc/systemd/system/frankenphp.service.d/10-dfm.conf：写入 [Service] ProtectHome=false。deb 单元默认 ProtectHome=true 会屏蔽 /home 下的网站根目录。
-  - 执行 systemctl daemon-reload，enable 并启动 frankenphp 与 mysql；启动前先停 frankenphp 服务，再通过 Caddy admin API（localhost:2019）探测并优雅停止可能遗留的实例，探测失败时明确报错，不按进程名杀进程。
+  - 执行 systemctl daemon-reload，enable 并启动 frankenphp 与 mysql；启动前先停 frankenphp 服务，再通过 Caddy admin API（FRANKENPHP_ADMIN_URL，默认 localhost:2019）探测并优雅停止可能遗留的实例，轮询次数与间隔由 FRANKENPHP_STOP_POLL_ATTEMPTS / FRANKENPHP_STOP_POLL_INTERVAL 控制，探测失败时明确报错，不按进程名杀进程。
 
   FrankenPHP 与 Caddy 配置
 

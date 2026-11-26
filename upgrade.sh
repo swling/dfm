@@ -4,12 +4,19 @@ set -Eeuo pipefail
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck disable=SC1091
 . "${SCRIPT_DIR}/dfm-common.sh"
+if [[ -r /etc/dfm.conf ]]; then
+    # shellcheck disable=SC1091
+    . /etc/dfm.conf
+elif [[ -r "${SCRIPT_DIR}/dfm.conf" ]]; then
+    # shellcheck disable=SC1091
+    . "${SCRIPT_DIR}/dfm.conf"
+fi
 PHP_VERSION_STATE="${STATE_DIR}/php-version"
 FRANKENPHP_VERSION_STATE="${STATE_DIR}/frankenphp-version"
 AUTO_CONFIRM=0
 
 usage() {
-    cat <<'EOF'
+    cat <<EOF
 Usage:
   upgrade.sh [--yes] [frankenphp [version]]
   upgrade.sh [--yes] php <branch>
@@ -18,7 +25,7 @@ Usage:
 Components:
   frankenphp  Upgrade FrankenPHP and php-zts-* packages inside the active
               PHP branch. Same-branch upgrades belong here.
-  php         Switch to another PHP branch (8.2 / 8.3 / 8.4 / 8.5). The APT
+  php         Switch to another PHP branch (${PHP_BRANCH_CANDIDATES// /, }). The APT
               source is switched and the php-zts-* packages are reinstalled.
   mysql       Upgrade mysql-server from the Oracle APT repository configured
               by install.sh. The data directory is not touched.
@@ -63,8 +70,8 @@ require_debian() {
     . /etc/os-release
     [[ "${ID:-}" == debian ]] || fail "Only Debian is supported."
     major="${VERSION_ID%%.*}"
-    [[ "$major" =~ ^[0-9]+$ ]] && ((major >= 13)) ||
-        fail "This script requires Debian 13 or later."
+    [[ "$major" =~ ^[0-9]+$ ]] && (( major >= MIN_DEBIAN_MAJOR )) ||
+        fail "This script requires Debian ${MIN_DEBIAN_MAJOR} or later."
 }
 
 list_package_versions() {
@@ -171,8 +178,8 @@ configure_frankenphp_repository() {
     local architecture
 
     architecture="$(dpkg --print-architecture)"
-    [[ "$architecture" == amd64 || "$architecture" == arm64 ]] ||
-        fail "The FrankenPHP deb repository does not support this architecture: ${architecture}"
+    [[ " $FRANKENPHP_ARCHITECTURES " == *" $architecture "* ]] ||
+        fail "The FrankenPHP deb repository does not support this architecture: ${architecture} (configured: ${FRANKENPHP_ARCHITECTURES// /, })."
 
     code="${branch//./}"
     source_target="$(frankenphp_source_path "$branch")"
@@ -361,7 +368,7 @@ upgrade_mysql() {
 
     confirm_risk "MySQL"
     apt-get update
-    version="$(resolve_package_version mysql-server "$requested" 8 repo.mysql.com)"
+    version="$(resolve_package_version mysql-server "$requested" "$MYSQL_MIN_MAJOR_VERSION" repo.mysql.com)"
 
     current_version="$(dpkg-query -W -f='${Version}' mysql-server 2>/dev/null || true)"
     current_version="${current_version#*:}"

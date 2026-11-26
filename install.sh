@@ -29,12 +29,12 @@ PHP_REPO_CODE=
 CLEAR_MYSQL_DATA=0
 
 usage() {
-    cat <<'EOF'
+    cat <<EOF
 Usage: install.sh
 
-Install the DFM Debian profile on Debian 13 or later:
+Install the DFM Debian profile on Debian ${MIN_DEBIAN_MAJOR} or later:
   FrankenPHP: deb packages from the repository linked by the official docs
-              (PHP 8.2, 8.3, 8.4 or 8.5, selected by repository branch)
+              (PHP ${PHP_BRANCH_CANDIDATES// /, }, selected by repository branch)
   MySQL:      Oracle MySQL APT repository (server components discovered dynamically)
 
 There is no nginx, PHP-FPM or acme.sh. Caddy's automatic HTTPS obtains and
@@ -81,7 +81,7 @@ select_mysql_version() {
         major="${version#*:}"
         major="${major%%.*}"
         [[ "$major" =~ ^[0-9]+$ ]] || continue
-        (( major >= 8 )) || continue
+        (( major >= MYSQL_MIN_MAJOR_VERSION )) || continue
         versions+=("$version")
         sources+=("$source")
         if [[ "$source" == *-lts* ]]; then
@@ -91,7 +91,7 @@ select_mysql_version() {
         fi
     done
     ((${#versions[@]} > 0)) ||
-        fail "No MySQL 8+ versions are available from the Oracle APT repository."
+        fail "No MySQL ${MYSQL_MIN_MAJOR_VERSION}+ versions are available from the Oracle APT repository."
 
     # Versions are sorted ascending, so the last LTS entry is the newest LTS.
     # Fall back to the newest version when no LTS component is available.
@@ -236,8 +236,8 @@ install_mysql_repository() {
     local key_tmp key_fingerprint
     MYSQL_CODENAME="$(. /etc/os-release && printf '%s' "${VERSION_CODENAME:-}")"
     MYSQL_ARCHITECTURE="$(dpkg --print-architecture)"
-    [[ "$MYSQL_ARCHITECTURE" == amd64 ]] ||
-        fail "Oracle MySQL's Debian 13 APT repository currently supports amd64 only (found: $MYSQL_ARCHITECTURE)."
+    [[ " $MYSQL_ARCHITECTURES " == *" $MYSQL_ARCHITECTURE "* ]] ||
+        fail "Oracle MySQL's Debian ${MYSQL_CODENAME} APT repository does not support this architecture: ${MYSQL_ARCHITECTURE} (configured: ${MYSQL_ARCHITECTURES// /, })."
     [[ -n "$MYSQL_CODENAME" ]] || fail "Could not determine Debian release codename."
 
     # Keep every server component enabled during discovery so the version menu
@@ -248,11 +248,11 @@ install_mysql_repository() {
     key_tmp="$(mktemp)"
     trap 'rm -f "$key_tmp"' RETURN
     curl --fail --silent --show-error --location \
-        https://repo.mysql.com/RPM-GPG-KEY-mysql-2025 -o "$key_tmp"
+        "$MYSQL_GPG_KEY_URL" -o "$key_tmp"
     key_fingerprint="$(gpg --show-keys --with-colons "$key_tmp" |
         awk -F: '$1 == "fpr" { print $10; exit }')"
-    [[ "$key_fingerprint" == BCA43417C3B485DD128EC6D4B7B3B788A8D3785C ]] ||
-        fail "Unexpected Oracle MySQL repository signing key fingerprint: ${key_fingerprint:-unreadable}"
+    [[ "$key_fingerprint" == "$MYSQL_GPG_FINGERPRINT" ]] ||
+        fail "Unexpected Oracle MySQL repository signing key fingerprint: ${key_fingerprint:-unreadable} (expected ${MYSQL_GPG_FINGERPRINT})"
     gpg --dearmor --yes --output "$MYSQL_KEYRING" "$key_tmp"
     chmod 0644 "$MYSQL_KEYRING"
     write_mysql_source "$MYSQL_COMPONENTS"
@@ -274,8 +274,8 @@ install_frankenphp_repository() {
     local architecture key_tmp source_tmp source_target keyring_target fingerprint repo_url stale_source stale_key previous_branch previous_code
 
     architecture="$(dpkg --print-architecture)"
-    [[ "$architecture" == amd64 || "$architecture" == arm64 ]] ||
-        fail "The FrankenPHP deb repository does not support this architecture: ${architecture}"
+    [[ " $FRANKENPHP_ARCHITECTURES " == *" $architecture "* ]] ||
+        fail "The FrankenPHP deb repository does not support this architecture: ${architecture} (configured: ${FRANKENPHP_ARCHITECTURES// /, })."
     [[ "$PHP_REPO_CODE" =~ ^[0-9]+$ ]] || fail "No PHP repository code was selected."
 
     source_target="$(frankenphp_source_path "$PHP_REPO_CODE")"
@@ -353,13 +353,13 @@ parse_arguments() {
 
 validate_platform() {
     [[ "$(id -u)" -eq 0 ]] || fail "Run this installer as root."
-    [[ -r /etc/os-release ]] || fail "This script requires Debian 13 or later."
+    [[ -r /etc/os-release ]] || fail "This script requires Debian ${MIN_DEBIAN_MAJOR} or later."
     # shellcheck disable=SC1091
     . /etc/os-release
-    [[ "${ID:-}" == debian ]] || fail "Only Debian 13 or later is supported."
+    [[ "${ID:-}" == debian ]] || fail "Only Debian ${MIN_DEBIAN_MAJOR} or later is supported."
     DEBIAN_MAJOR="${VERSION_ID%%.*}"
     [[ "$DEBIAN_MAJOR" =~ ^[0-9]+$ ]] &&
-        (( DEBIAN_MAJOR >= 13 )) || fail "Only Debian 13 or later is supported."
+        (( DEBIAN_MAJOR >= MIN_DEBIAN_MAJOR )) || fail "Only Debian ${MIN_DEBIAN_MAJOR} or later is supported."
     command -v apt-get >/dev/null || fail "apt-get is required."
 }
 
