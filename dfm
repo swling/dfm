@@ -55,7 +55,7 @@ require_frankenphp() {
 }
 
 check_certificate() {
-    local domain=$1 since=$2 cert= elapsed=0 lines expiry
+    local domain=$1 since=$2 cert= elapsed=0 lines expiry log_file
 
     printf 'Waiting up to %ss for certificate (polling every %ss)...\n' \
         "$CERT_WAIT_TIMEOUT" "$CERT_POLL_INTERVAL"
@@ -80,19 +80,23 @@ check_certificate() {
     fi
 
     printf '  Status: pending after %ss (Caddy keeps retrying in the background)\n' "$elapsed"
-    if command -v journalctl >/dev/null 2>&1; then
-        sleep 1
-        lines="$(journalctl -u frankenphp --since "$since" --no-pager 2>/dev/null |
-            awk 'tolower($0) ~ /acme|certificate|tls|challenge|letsencrypt|http-01|dns-01/' |
-            tail -n 20 || true)"
+    log_file="${FRANKENPHP_LOG_DIR}/caddy.log"
+    if [[ -r "$log_file" ]]; then
+        # JSON 行的 ts 与 since 均为 Unix 秒。
+        lines="$(awk -v since="$since" '
+            match($0, /"ts":[0-9]+(\.[0-9]+)?/) {
+                ts = substr($0, RSTART + 5, RLENGTH - 5) + 0
+                if (ts >= since && tolower($0) ~ /acme|certificate|tls|challenge|letsencrypt|http-01|dns-01/)
+                    print
+            }' "$log_file" | tail -n 20 || true)"
         if [[ -n "$lines" ]]; then
             printf 'Caddy TLS/ACME log:\n'
             printf '%s\n' "$lines" | sed 's/^/  /'
         fi
     fi
 
-    printf '  Log:    journalctl -u frankenphp -n 100 --no-pager\n'
-    printf '          journalctl -u frankenphp --since "-1h" --no-pager | grep -i "%s"\n' "$domain"
+    printf '  Log:    %s\n' "$log_file"
+    printf '          grep -i "%s" %s | tail -n 50\n' "$domain" "$log_file"
 }
 
 valid_domain() {
@@ -208,7 +212,7 @@ ${addresses} {
 ${log_block}
 }
 EOF
-    cert_log_since="$(date '+%Y-%m-%d %H:%M:%S')"
+    cert_log_since="$(date +%s)"
     if ! reload_frankenphp; then
         rm -f "$config"
         fail "FrankenPHP rejected the new virtual host; its config was removed."

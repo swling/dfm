@@ -71,7 +71,7 @@ fp 是 frankenphp 的别名，db 是 mysql 的别名；mariadb 也作为 mysql �
 写入后会执行 frankenphp validate；验证失败时删除新文件并报错。
 reload 前记录时间点，随后轮询证书存储：默认每 2 秒检查一次，最多 60 秒，
 证书一出现就立即结束，只输出路径与有效期；超时只报“等待期内未签发”，不判定签发失败。
-未签发时才摘出这段时间内 journalctl -u frankenphp 中与 TLS/ACME 相关的行
+未签发时才摘出这段时间内 $FRANKENPHP_LOG_DIR/caddy.log 中与 TLS/ACME 相关的行
 （acme、certificate、tls、challenge、letsencrypt、http-01、dns-01 等关键词），
 不按域名过滤，并给出查看完整日志的命令。
 站点文件直接放在 Caddyfile.d/ 下，不使用 sites-available/sites-enabled。
@@ -109,7 +109,7 @@ dfm 不会替你改写配置，也不会动同一地址行的其他域名。
 
 证书由 Caddy 后台异步签发，reload 后立即列出的是当时已存在的证书；
 刚触发的签发可能还没完成，需稍后再执行本命令查看，或直接查看证书目录。
-签发失败时查看 journalctl -u frankenphp 中的 ACME/TLS 日志。
+签发失败时查看 $FRANKENPHP_LOG_DIR/caddy.log 中的 ACME/TLS 日志。
 
 开发调试时直接编辑 /etc/frankenphp/Caddyfile 的全局块启用 staging CA
 （见 docs/configuration.md）。重装不会覆盖已有主配置，所以改动会保留；
@@ -189,5 +189,6 @@ Caddyfile.d/<域名>.caddyfile，在 handle 块内的 php_server 前后添加，
 
     dfm status
     /usr/bin/frankenphp validate --config /etc/frankenphp/Caddyfile
-    journalctl -u frankenphp -n 100 --no-pager
+    journalctl -u frankenphp -n 100 --no-pager       # 仅 systemd 自身信息
+    grep -i acme /var/log/frankenphp/caddy.log | tail -n 50
     ls /var/lib/frankenphp/caddy

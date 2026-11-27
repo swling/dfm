@@ -69,7 +69,7 @@ Oracle MySQL 仅 amd64、FrankenPHP 为 amd64 与 arm64，
   curl -I http://127.0.0.1/
 
   新站点的证书在浏览器首次访问 https 域名时由 Caddy 自动签发；
-  可用 journalctl -u frankenphp 查看 ACME 过程。
+  可用 $FRANKENPHP_LOG_DIR/caddy.log 查看 ACME 过程。
 
   upgrade.sh 与 sync-dfm.sh 都依赖本目录；
   请保留源码目录，不要在安装后删除。

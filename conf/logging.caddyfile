@@ -1,0 +1,32 @@
+# Managed by DFM. Imported from the global block of Caddyfile.
+# 输出目录由 FRANKENPHP_LOG_DIR 在部署时渲染；Caddy 自带轮转：100MiB / 10 份 / 30 天。
+#
+# Caddy 日志 namespace（include / exclude 按此匹配）：
+#   http.log.access    HTTP 访问日志，每请求一条；按站点访问日志是独立 logger，不走这里
+#   http.handlers.php  FrankenPHP 的 PHP handler：引擎错误、error_log()、frankenphp_log()
+#   tls / tls.issuance.acme / http.auto_https  证书签发、ACME 挑战、自动 HTTPS
+#
+# 两个 logger 只写文件，无 stderr 输出，Caddy 日志不进 journald：
+#   caddy.log     Caddy 运行 + TLS/ACME，排除访问日志与 PHP namespace
+#   php-error.log 仅 PHP namespace
+# 不改 php.ini，不装 logrotate。
+log default {
+    exclude http.log.access http.handlers.php
+    level INFO
+    format json
+    output file @FRANKENPHP_LOG_DIR@/caddy.log {
+        roll_size 100MiB
+        roll_keep 10
+        roll_keep_for 720h
+    }
+}
+log file_php {
+    include http.handlers.php
+    level INFO
+    format json
+    output file @FRANKENPHP_LOG_DIR@/php-error.log {
+        roll_size 100MiB
+        roll_keep 10
+        roll_keep_for 720h
+    }
+}

@@ -534,7 +534,7 @@ prepare_web_layout() {
 }
 
 configure_frankenphp() {
-    local caddyfile caddyfile_tmp default_site default_site_tmp email_line
+    local caddyfile caddyfile_tmp logging_tmp default_site default_site_tmp email_line
 
     install -d -m 0755 "$FRANKENPHP_CONFIG_DIR" "$FRANKENPHP_SITE_DIR"
     install -d -o frankenphp -g frankenphp -m 0750 "$FRANKENPHP_CADDY_DATA"
@@ -567,6 +567,11 @@ EOF
         sed "s#@EMAIL_LINE@#${email_line}#" "$SCRIPT_DIR/conf/Caddyfile" > "$caddyfile_tmp"
         chmod 0644 "$caddyfile_tmp"
         mv "$caddyfile_tmp" "$caddyfile"
+        logging_tmp="$(mktemp "${FRANKENPHP_CONFIG_DIR}/logging.caddyfile.XXXXXX")"
+        sed "s#@FRANKENPHP_LOG_DIR@#${FRANKENPHP_LOG_DIR}#g" \
+            "$SCRIPT_DIR/conf/logging.caddyfile" > "$logging_tmp"
+        chmod 0644 "$logging_tmp"
+        mv "$logging_tmp" "${FRANKENPHP_CONFIG_DIR}/logging.caddyfile"
         install -d -m 0755 "$STATE_DIR"
         : > "$caddyfile_installed"
     fi

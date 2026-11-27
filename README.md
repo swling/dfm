@@ -83,6 +83,7 @@ MySQL 的安装、数据目录迁移和选版逻辑保持不变。
 
   - /etc/frankenphp 与 Caddyfile.d 目录按 0755 创建。
   - /etc/frankenphp/Caddyfile：仅首次安装按 conf/Caddyfile 生成并写入 ACME_EMAIL，同时创建标记 /etc/dfm/caddyfile.installed；之后重装一律保留。
+  - /etc/frankenphp/logging.caddyfile：与主配置同时首次部署，之后重装保留；主配置 import 引入。
   - /etc/frankenphp/Caddyfile.d/default.caddyfile：缺失时按 conf/default-site.caddyfile 生成 HTTP 默认站点。
   - /etc/frankenphp/cache-static.caddyfile：缺失时按模板复制。
   - 主配置通过 import Caddyfile.d/*.caddyfile 加载站点块。

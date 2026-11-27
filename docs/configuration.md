@@ -45,7 +45,7 @@ MYSQL_DATA_DIR 只在安装阶段生效：仅当源码 dfm.conf 中该值不是 
 
   WEB_ROOT            新建站点的默认父目录。
   DEFAULT_WEB_ROOT    未匹配域名时默认站点的根目录。
-  FRANKENPHP_LOG_DIR  按站点开启访问日志时的输出目录。
+  FRANKENPHP_LOG_DIR  访问日志、caddy.log 与 php-error.log 的输出目录。
   MYSQL_DATA_DIR      MySQL 数据目录，可用于独立磁盘；逻辑与 LNMP 版本一致。
   PHP_VERSION         留空则交互选择；填写时必须是 PHP_BRANCH_CANDIDATES 中的分支。
   MYSQL_VERSION       留空则交互选择；填写时必须是菜单中的确切版本字符串。
@@ -115,6 +115,10 @@ MYSQL_DATA_DIR 只在安装阶段生效：仅当源码 dfm.conf 中该值不是 
                  staging 证书不被浏览器信任、
                  ACME 账户独立、限流宽松（同组域名每周 30000 张）。
                  正式签发前必须重新注释，否则拿到的是不受信任的证书。
+  日志片段       主配置 import logging.caddyfile，来自 conf/logging.caddyfile；
+                 与主配置同时首次部署，之后重装保留。仅 caddy.log / php-error.log
+                 两个文件 logger，路径由 FRANKENPHP_LOG_DIR 渲染，不进 journald。
+  journald        只剩 systemd 自身信息（启停、unit 失败、OOM、崩溃）。
   站点加载       主配置末尾 import Caddyfile.d/*.caddyfile。
                  默认站点是 default.caddyfile；dfm 新建站点按主域名命名，
                  手工配置可让多个域名共用一个文件或写多个站点块。
@@ -161,6 +165,7 @@ MYSQL_DATA_DIR 只在安装阶段生效：仅当源码 dfm.conf 中该值不是 
   用户配置入口        /etc/dfm.conf
   内部状态            /etc/dfm/
   Caddy 主配置        /etc/frankenphp/Caddyfile
+  日志片段            /etc/frankenphp/logging.caddyfile
   默认站点            /etc/frankenphp/Caddyfile.d/default.caddyfile
   站点配置            /etc/frankenphp/Caddyfile.d/*.caddyfile（dfm 新建时以主域名命名，可手工合并多域名）
   静态缓存片段        /etc/frankenphp/cache-static.caddyfile
