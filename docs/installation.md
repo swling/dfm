@@ -20,8 +20,7 @@
                https://pkg.henderkes.com/api/packages/<代码>/debian
                仓库套件为 php-zts，组件为 main，使用仓库自带的签名密钥。
                代码为分支号去掉小数点，例如 8.4 对应 84；
-               候选分支由 dfm.conf 的 PHP_BRANCH_CANDIDATES 决定，
-               同一时刻只启用一个分支的仓库。
+               可用分支自动探测，同一时刻只启用一个分支的仓库。
 
   MySQL        Oracle MySQL 官方 APT 仓库 https://repo.mysql.com/apt/debian。
                从 Release 文件动态发现 Server 组件，不做版本写死。
@@ -39,8 +38,10 @@ Oracle MySQL 仅 amd64、FrankenPHP 为 amd64 与 arm64，
 
 ## 版本选择流程
 
-  1. 安装器探测 PHP_BRANCH_CANDIDATES 列出的分支中哪些可访问，列出菜单。
-  2. dfm.conf 中的 PHP_VERSION 作为菜单默认值；值不可用时警告并回退到最新可用分支。
+  1. 安装器从探测起点向上逐个探测仓库，列出所有可访问的 PHP 分支；
+     连续多次未命中后停止，新发布的分支会自动进入菜单。
+  2. 最高可用分支为默认；dfm.conf 中的 PHP_VERSION 可改默认值，
+     值不可用时警告并回退到最高可用分支。
   3. MySQL 列出仓库中全部 8.x 版本并标注 LTS / 创新版，默认选版本最高的 LTS。
   4. MYSQL_VERSION 若已设置，必须是菜单中的确切值，否则报错退出。
   5. 无交互终端时按各自默认值安装。

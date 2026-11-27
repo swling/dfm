@@ -12,8 +12,7 @@
     sudo ./upgrade.sh mysql [版本]
 
 省略组件时显示交互菜单。FrankenPHP 与 MySQL 的版本可以是上游版本（如
-`8.4.0`）或完整 APT 版本；PHP 只接受 dfm.conf 中
-PHP_BRANCH_CANDIDATES 列出的分支号。
+`8.4.0`）或完整 APT 版本；PHP 只接受自动探测到的可用分支号。
 
 `--yes` 必须放在组件之前，并显式指定版本：
 
@@ -40,6 +39,7 @@ PHP_BRANCH_CANDIDATES 列出的分支号。
 
   FrankenPHP   https://pkg.henderkes.com/api/packages/<代码>/debian
                套件 php-zts、组件 main，代码为分支号去掉小数点（8.4 → 84）。
+               可用分支自动探测，新版本无需改配置即可出现在菜单中；
                同一时刻只启用一个分支的仓库，切换分支会移除旧的 DFM 仓库。
 
   MySQL        https://repo.mysql.com/apt/debian

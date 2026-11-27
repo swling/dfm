@@ -34,7 +34,7 @@ Usage: install.sh
 
 Install the DFM Debian profile on Debian ${MIN_DEBIAN_MAJOR} or later:
   FrankenPHP: deb packages from the repository linked by the official docs
-              (PHP ${PHP_BRANCH_CANDIDATES// /, }, selected by repository branch)
+              (PHP branches discovered from the repository, highest is default)
   MySQL:      Oracle MySQL APT repository (server components discovered dynamically)
 
 There is no nginx, PHP-FPM or acme.sh. Caddy's automatic HTTPS obtains and

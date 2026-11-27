@@ -25,8 +25,9 @@ Usage:
 Components:
   frankenphp  Upgrade FrankenPHP and php-zts-* packages inside the active
               PHP branch. Same-branch upgrades belong here.
-  php         Switch to another PHP branch (${PHP_BRANCH_CANDIDATES// /, }). The APT
-              source is switched and the php-zts-* packages are reinstalled.
+  php         Switch to another PHP branch discovered from the FrankenPHP
+              deb repository. The APT source is switched and the php-zts-*
+              packages are reinstalled.
   mysql       Upgrade mysql-server from the Oracle APT repository configured
               by install.sh. The data directory is not touched.
 

@@ -11,7 +11,6 @@ STATE_DIR=/etc/dfm
 
 # Defaults for the parameters exposed in dfm.conf. Every script sources this
 # file before the config file, so values in dfm.conf override these defaults.
-PHP_BRANCH_CANDIDATES="${PHP_BRANCH_CANDIDATES:-8.2 8.3 8.4 8.5}"
 PHP_BRANCH_PROBE_TIMEOUT="${PHP_BRANCH_PROBE_TIMEOUT:-20}"
 MYSQL_MIN_MAJOR_VERSION="${MYSQL_MIN_MAJOR_VERSION:-8}"
 MIN_DEBIAN_MAJOR="${MIN_DEBIAN_MAJOR:-13}"
@@ -82,20 +81,39 @@ install_mysql_keyring() {
     trap - RETURN
 }
 
+php_branch_available() {
+    local branch=$1 code="${1//./}"
+    curl --fail --silent --show-error --location --head \
+        --max-time "$PHP_BRANCH_PROBE_TIMEOUT" \
+        "${FRANKENPHP_REPO_BASE}/${code}/debian/dists/php-zts/Release" \
+        -o /dev/null 2>/dev/null
+}
+
+# Walk branches upward from 8.0 and keep every repository that answers, so
+# newly published PHP versions appear without a config edit. Stop after five
+# consecutive misses (enough to bridge versions not yet published); the probe
+# count is capped so a broken network cannot loop forever.
 detect_php_branches() {
-    local branch code
+    local major minor branch misses=0 probes=0
+
     PHP_BRANCHES=()
-    for branch in $PHP_BRANCH_CANDIDATES; do
-        code="${branch//./}"
-        if curl --fail --silent --show-error --location --head \
-            --max-time "$PHP_BRANCH_PROBE_TIMEOUT" \
-            "${FRANKENPHP_REPO_BASE}/${code}/debian/dists/php-zts/Release" \
-            -o /dev/null 2>/dev/null; then
-            PHP_BRANCHES+=("$branch")
-        fi
+    for ((major = 8; major <= 99; major++)); do
+        for ((minor = 0; minor <= 9; minor++)); do
+            branch="${major}.${minor}"
+            ((probes < 24)) || break 2
+            probes=$((probes + 1))
+            if php_branch_available "$branch"; then
+                PHP_BRANCHES+=("$branch")
+                misses=0
+            else
+                misses=$((misses + 1))
+                ((misses < 5)) || break 2
+            fi
+        done
     done
+
     ((${#PHP_BRANCHES[@]} > 0)) ||
-        fail "No PHP branches are available from the FrankenPHP deb repository. Check PHP_BRANCH_CANDIDATES in dfm.conf."
+        fail "No PHP branches are available from the FrankenPHP deb repository. Check network connectivity and PHP_BRANCH_PROBE_TIMEOUT in dfm.conf."
 }
 
 stop_other_frankenphp() {

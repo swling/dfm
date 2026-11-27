@@ -9,7 +9,6 @@
     PHP_VERSION=""
     MYSQL_VERSION=""
     ACME_EMAIL=""
-    PHP_BRANCH_CANDIDATES="8.2 8.3 8.4 8.5"
     PHP_BRANCH_PROBE_TIMEOUT=20
     MYSQL_MIN_MAJOR_VERSION=8
     MIN_DEBIAN_MAJOR=13
@@ -47,11 +46,10 @@ MYSQL_DATA_DIR 只在安装阶段生效：仅当源码 dfm.conf 中该值不是 
   DEFAULT_WEB_ROOT    未匹配域名时默认站点的根目录。
   FRANKENPHP_LOG_DIR  访问日志、caddy.log 与 php-error.log 的输出目录。
   MYSQL_DATA_DIR      MySQL 数据目录，可用于独立磁盘；逻辑与 LNMP 版本一致。
-  PHP_VERSION         留空则交互选择；填写时必须是 PHP_BRANCH_CANDIDATES 中的分支。
+  PHP_VERSION         留空则交互选择；填写时必须是探测到的可用分支之一。
   MYSQL_VERSION       留空则交互选择；填写时必须是菜单中的确切版本字符串。
   ACME_EMAIL          可选，写进 Caddyfile 全局 email 指令，用于 ACME 通知。
 
-  PHP_BRANCH_CANDIDATES  探测的 PHP 分支候选，空格分隔；最后一个可用分支为默认。
   PHP_BRANCH_PROBE_TIMEOUT  单个分支仓库探测的超时秒数。
   MYSQL_MIN_MAJOR_VERSION   仓库中接受的最低 MySQL 主版本号。
   MIN_DEBIAN_MAJOR      允许安装的最低 Debian 主版本号。
@@ -69,7 +67,7 @@ MYSQL_DATA_DIR 只在安装阶段生效：仅当源码 dfm.conf 中该值不是 
 ## 探测与平台参数
 
   install.sh、upgrade.sh 与 dfm 都从配置读取这些值，函数内部不再写死：
-  PHP 分支候选与探测超时、MySQL 最低主版本、最低 Debian 版本、
+  PHP 分支探测超时、MySQL 最低主版本、最低 Debian 版本、
   两个仓库的架构白名单、Oracle MySQL 签名密钥地址与指纹，
   以及 Caddy admin 端点与遗留实例清理的轮询参数。
 
@@ -79,8 +77,9 @@ MYSQL_DATA_DIR 只在安装阶段生效：仅当源码 dfm.conf 中该值不是 
 
 ## 版本变量规则
 
-  - PHP：分支来自 FrankenPHP deb 仓库。配置值不在菜单中时警告并回退，
-    避免旧版本导致无法重装。安装器把分支记录在 /etc/dfm/php-version。
+  - PHP：分支从 FrankenPHP deb 仓库自动探测，最高可用分支为默认。
+    配置值不在探测结果中时警告并回退，避免旧版本导致无法重装。
+    安装器把分支记录在 /etc/dfm/php-version。
   - MySQL：版本来自 Oracle 仓库，涉及数据兼容性；配置值不在菜单中时报错退出。
   - FrankenPHP：不配置版本号，跟随所选分支仓库的 apt 候选版本；实际版本写入
     /etc/dfm/frankenphp-version，可用 apt upgrade frankenphp 升级。
